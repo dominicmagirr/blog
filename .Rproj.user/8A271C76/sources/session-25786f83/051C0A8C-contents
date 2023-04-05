@@ -1,0 +1,18 @@
+---
+title: "About"
+image: personal_photo_dm.jpg
+about:
+  template: jolla
+  links:
+    - icon: twitter
+      text: Twitter
+      href: https://twitter.com/DominicMagirr
+    - icon: linkedin
+      text: LinkedIn
+      href: https://uk.linkedin.com/in/dominic-magirr-87666b12b
+    - icon: github
+      text: Github
+      href: https://github.com/dominicmagirr
+---
+
+This is a blog to share updates of my work on statistical methodology in clinical trials.
