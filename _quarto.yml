@@ -4,6 +4,8 @@ project:
 
 website:
   title: "Dominic's stats blog"
+  site-url: https://dominicmagirr.github.io/blog/
+  description: "A blog about statistical methodology in clinical trials"
   navbar:
     right:
       - about.qmd
@@ -17,6 +19,8 @@ website:
         href: https://scholar.google.co.uk/citations?user=obri2xMAAAAJ&hl=en
       - icon: youtube
         href: https://www.youtube.com/@dominicmagirr5571
+      - icon: rss
+        href: index.xml
 format:
   html:
     theme: cyborg
