@@ -19,7 +19,7 @@ website:
         href: https://www.youtube.com/@dominicmagirr5571
 format:
   html:
-    theme: cosmo
+    theme: cyborg
     css: styles.css
 
 editor: visual

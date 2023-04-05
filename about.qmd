@@ -15,4 +15,4 @@ about:
       href: https://github.com/dominicmagirr
 ---
 
-This is a blog to share updates of my work on statistical methodology in clinical trials.
+A place to share updates of my work on statistical methodology in clinical trials.
