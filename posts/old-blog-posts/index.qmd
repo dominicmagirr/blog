@@ -1,9 +1,8 @@
 ---
-title: "Old blog posts"
+title: "Old blog"
 author: "Dominic Magirr"
 date: "2023-04-05"
 categories: [news]
-image: "old_blog.PNG"
 ---
 
 Previous blogposts can be found [here](https://dominicmagirr.github.io)

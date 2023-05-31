@@ -3,7 +3,7 @@ project:
   output-dir: docs
 
 website:
-  title: "Dominic's stats blog"
+  title: "Dominic Magirr"
   site-url: https://dominicmagirr.github.io/blog/
   description: "A blog about statistical methodology in clinical trials"
   navbar:

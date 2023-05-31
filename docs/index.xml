@@ -5,14 +5,257 @@
       xmlns:dc="http://purl.org/dc/elements/1.1/" 
       version="2.0">
 <channel>
-<title>Dominic's stats blog</title>
+<title>Dominic Magirr</title>
 <link>https://dominicmagirr.github.io/blog/index.html</link>
 <atom:link href="https://dominicmagirr.github.io/blog/index.xml" rel="self" type="application/rss+xml"/>
 <description>A blog about statistical methodology in clinical trials</description>
-<generator>quarto-1.1.251</generator>
-<lastBuildDate>Tue, 04 Apr 2023 22:00:00 GMT</lastBuildDate>
+<generator>quarto-1.2.475</generator>
+<lastBuildDate>Tue, 30 May 2023 22:00:00 GMT</lastBuildDate>
 <item>
-  <title>Old blog posts</title>
+  <title>Stratified or covariate adjusted Cox model?</title>
+  <dc:creator>Dominic Magirr</dc:creator>
+  <link>https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>The European Medicines Agency recently released a <a href="https://www.ema.europa.eu/en/documents/other/letter-support-statistical-adjustment-deep-learning-prognosis-covariates-obtained-histological_en.pdf">letter of support</a> regarding covariate adjustment in RCTs with time-to-event endpoints.</p>
+<p>I found it interesting, not because of the specific prognostic covariate in question, but rather the <strong>Discussion of statistical methodology</strong> section, where the more general question was addressed of whether a Cox model adjusting for <strong>any</strong> covariate is acceptable. To quote:</p>
+<p><em>The simulation studies performed as outlined rely on the proportional hazard assumption. In case of non-proportional hazards there is the risk of a considerable increase in Type 1 error <a href="https://onlinelibrary.wiley.com/doi/epdf/10.1002/sim.3406">Jiang H et al.,(Stat Med (2008)</a> when using adjusted Cox regression […] The standard approach to analysis of time-to-event data in clinical trials in oncology is to use a log-rank test, with or without stratification factors, for hypothesis testing for a primary time-to-event endpoint. Cox Models with adjustment for covariates are only used for estimation of treatment effects.</em></p>
+<p>In informal conversations with colleagues working in oncology over recent years, I’ve often heard that performing a stratified log-rank test is considered OK, but including a (continuous, say) covariate as an additional term in a Cox model, and then performing the primary hypothesis test via this model, would be dismissed out of hand.</p>
+<p>I’ve wondered where this received wisdom comes from. My intuition was that, having made the assumptions necessary to perform the stratified log-rank test, it’s a relatively mild <em>additional</em> assumption to use the Cox model with the covariate as an additional term instead.</p>
+<p>So I’m glad that this letter illuminates (perhaps) the source of this line of argument.</p>
+<p>In <a href="https://onlinelibrary.wiley.com/doi/epdf/10.1002/sim.3406">Jiang H et al.,Stat Med (2008)</a>, the authors simulate survival times form a log-normal distribution…</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Clog(T)%20%5Csim%20N(-4%20+%200%20%5Ctimes%20Z_1%20-%200.15%20%5Ctimes%20Z_2%20%20,%201)."></p>
+<p>Here, <img src="https://latex.codecogs.com/png.latex?Z_1"> is the treatment indicator, and <img src="https://latex.codecogs.com/png.latex?Z_2"> is a covariate with distribution <img src="https://latex.codecogs.com/png.latex?N(%5Cmu%20=%2050,%20%5Csigma%5E2%20=%20100)">.</p>
+<p>A Cox model <img src="https://latex.codecogs.com/png.latex?h(t)%20=%20h_0(t)%5Cexp(%5Cbeta_1%20Z_1%20+%20%5Cbeta_2%20Z_2)"> is used for analysis with a test based on the estimated <img src="https://latex.codecogs.com/png.latex?%5Chat%7B%5Cbeta%7D_1">.</p>
+<section id="case-1-no-censoring" class="level2">
+<h2 class="anchored" data-anchor-id="case-1-no-censoring">Case 1: no censoring</h2>
+<p><a href="https://onlinelibrary.wiley.com/doi/epdf/10.1002/sim.3406">Jiang H et al.,Stat Med (2008)</a> claim that the two-sided type I error rate increases from nominal 5% to about 10%. I’ll reproduce that here (although I’ll show the one-sided alpha increases from 2.5% to about 5%)…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">library</span>(survival)</span>
+<span id="cb1-2"> </span>
+<span id="cb1-3"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## function to simulate data from one trial,</span></span>
+<span id="cb1-4"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## fit Cox model, and estimate adjusted hazard</span></span>
+<span id="cb1-5"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## ratio (treatment effect, beta_1)</span></span>
+<span id="cb1-6"></span>
+<span id="cb1-7">sim_one_trial <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(n, <span class="at" style="color: #657422;">beta_0 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">4</span>, <span class="at" style="color: #657422;">beta_2 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.15</span>){</span>
+<span id="cb1-8"></span>
+<span id="cb1-9">  z_1 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"c"</span>, <span class="st" style="color: #20794D;">"e"</span>), <span class="at" style="color: #657422;">each =</span> n)</span>
+<span id="cb1-10">  z_2 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rnorm</span>(<span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">*</span> n, <span class="at" style="color: #657422;">mean =</span> <span class="dv" style="color: #AD0000;">50</span>, <span class="at" style="color: #657422;">sd =</span> <span class="dv" style="color: #AD0000;">10</span>)</span>
+<span id="cb1-11">  t_c_e <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">exp</span>(<span class="fu" style="color: #4758AB;">rnorm</span>(<span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">*</span> n, <span class="at" style="color: #657422;">mean =</span> beta_0 <span class="sc" style="color: #5E5E5E;">+</span> beta_2 <span class="sc" style="color: #5E5E5E;">*</span> z_2))</span>
+<span id="cb1-12">  events <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">*</span> n)</span>
+<span id="cb1-13"></span>
+<span id="cb1-14">  fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">coxph</span>(<span class="fu" style="color: #4758AB;">Surv</span>(t_c_e, events) <span class="sc" style="color: #5E5E5E;">~</span>  z_1 <span class="sc" style="color: #5E5E5E;">+</span> z_2)</span>
+<span id="cb1-15"></span>
+<span id="cb1-16">  z <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">summary</span>(fit)<span class="sc" style="color: #5E5E5E;">$</span>coef[<span class="dv" style="color: #AD0000;">1</span>, <span class="st" style="color: #20794D;">"z"</span>]</span>
+<span id="cb1-17">}</span>
+<span id="cb1-18"></span>
+<span id="cb1-19"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate 1000 trials, with n = 200 per arm</span></span>
+<span id="cb1-20"><span class="fu" style="color: #4758AB;">set.seed</span>(<span class="dv" style="color: #AD0000;">325</span>)</span>
+<span id="cb1-21">res <span class="ot" style="color: #003B4F;">&lt;-</span> purrr<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">map_dbl</span>(<span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">200</span>, <span class="dv" style="color: #AD0000;">1000</span>), sim_one_trial)</span>
+<span id="cb1-22"> </span>
+<span id="cb1-23"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## estimate type I error rate</span></span>
+<span id="cb1-24"><span class="fu" style="color: #4758AB;">mean</span>(res <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.054</code></pre>
+</div>
+</div>
+<p>So that’s it then? This approach is a no-no?</p>
+<p>Well…maybe. But first let’s take a closer look at this model and this particular parameter constellation. To do that I simulate 1,000 observations from the model, and then plot the Kaplan-Meier estimate…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1">n <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">1000</span></span>
+<span id="cb3-2">beta_0 <span class="ot" style="color: #003B4F;">=</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">4</span></span>
+<span id="cb3-3">beta_2 <span class="ot" style="color: #003B4F;">=</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.15</span></span>
+<span id="cb3-4">z_2 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rnorm</span>(n, <span class="at" style="color: #657422;">mean =</span> <span class="dv" style="color: #AD0000;">50</span>, <span class="at" style="color: #657422;">sd =</span> <span class="dv" style="color: #AD0000;">10</span>)</span>
+<span id="cb3-5">surv_t <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">exp</span>(<span class="fu" style="color: #4758AB;">rnorm</span>(n, <span class="at" style="color: #657422;">mean =</span> beta_0 <span class="sc" style="color: #5E5E5E;">+</span> beta_2 <span class="sc" style="color: #5E5E5E;">*</span> z_2))</span>
+<span id="cb3-6">fit_km <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">survfit</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t, <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, n)) <span class="sc" style="color: #5E5E5E;">~</span> <span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb3-7"><span class="fu" style="color: #4758AB;">plot</span>(fit_km, <span class="at" style="color: #657422;">conf.int =</span> <span class="cn" style="color: #8f5902;">FALSE</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<p><img src="https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>This is a strange choice of time scale. But that’s not really important. I can multiply the survival times by 100,000 to get a more intuitive scale (years, say). Let’s try again…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1">surv_t <span class="ot" style="color: #003B4F;">&lt;-</span> surv_t <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">100000</span></span>
+<span id="cb4-2">fit_km <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">survfit</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t, <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, n)) <span class="sc" style="color: #5E5E5E;">~</span> <span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb4-3"><span class="fu" style="color: #4758AB;">plot</span>(fit_km, <span class="at" style="color: #657422;">conf.int =</span> <span class="cn" style="color: #8f5902;">FALSE</span>, <span class="at" style="color: #657422;">xlim =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>,<span class="dv" style="color: #AD0000;">10</span>),</span>
+<span id="cb4-4">     <span class="at" style="color: #657422;">xlab =</span> <span class="st" style="color: #20794D;">"time (years)"</span>,</span>
+<span id="cb4-5">     <span class="at" style="color: #657422;">ylab =</span> <span class="st" style="color: #20794D;">"P(Survival)"</span>)</span></code></pre></div>
+<div class="cell-output-display">
+<p><img src="https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>The next thing I’ll do is plot the KM curve of patients with an above average covariate value, <img src="https://latex.codecogs.com/png.latex?Z_2%20%3E%2050">, versus those with a below average covariate value, <img src="https://latex.codecogs.com/png.latex?Z_2%20%3C%2050">.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1">below_50 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">survfit</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t[z_2 <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="dv" style="color: #AD0000;">50</span>], <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, n)[z_2 <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="dv" style="color: #AD0000;">50</span>]) <span class="sc" style="color: #5E5E5E;">~</span> <span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb5-2">above_50 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">survfit</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t[z_2 <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">50</span>], <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, n)[z_2 <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">50</span>]) <span class="sc" style="color: #5E5E5E;">~</span> <span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb5-3"><span class="fu" style="color: #4758AB;">plot</span>(fit_km, <span class="at" style="color: #657422;">conf.int =</span> <span class="cn" style="color: #8f5902;">FALSE</span>, <span class="at" style="color: #657422;">xlim =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>,<span class="dv" style="color: #AD0000;">10</span>),</span>
+<span id="cb5-4">     <span class="at" style="color: #657422;">xlab =</span> <span class="st" style="color: #20794D;">"time (years)"</span>,</span>
+<span id="cb5-5">     <span class="at" style="color: #657422;">ylab =</span> <span class="st" style="color: #20794D;">"P(Survival)"</span>)</span>
+<span id="cb5-6"></span>
+<span id="cb5-7"><span class="fu" style="color: #4758AB;">points</span>(below_50<span class="sc" style="color: #5E5E5E;">$</span>time, below_50<span class="sc" style="color: #5E5E5E;">$</span>surv, <span class="at" style="color: #657422;">type =</span> <span class="st" style="color: #20794D;">"l"</span>, <span class="at" style="color: #657422;">col =</span> <span class="dv" style="color: #AD0000;">2</span>)</span>
+<span id="cb5-8"><span class="fu" style="color: #4758AB;">points</span>(above_50<span class="sc" style="color: #5E5E5E;">$</span>time, above_50<span class="sc" style="color: #5E5E5E;">$</span>surv, <span class="at" style="color: #657422;">type =</span> <span class="st" style="color: #20794D;">"l"</span>, <span class="at" style="color: #657422;">col =</span> <span class="dv" style="color: #AD0000;">3</span>)</span>
+<span id="cb5-9"><span class="fu" style="color: #4758AB;">legend</span>(<span class="st" style="color: #20794D;">"topright"</span>, <span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"Z_2 &lt; 50"</span>, <span class="st" style="color: #20794D;">"Z_2 &gt; 50"</span>),</span>
+<span id="cb5-10">       <span class="at" style="color: #657422;">lty =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">1</span>,<span class="dv" style="color: #AD0000;">1</span>),</span>
+<span id="cb5-11">       <span class="at" style="color: #657422;">col =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">2</span>,<span class="dv" style="color: #AD0000;">3</span>))</span></code></pre></div>
+<div class="cell-output-display">
+<p><img src="https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>This shows that <img src="https://latex.codecogs.com/png.latex?Z_2"> is an enormously prognostic covariate. Let’s look at the <em>period-specific average hazard ratios</em> comparing “Z_2 &gt; 50” versus “Z_2 &lt; 50”, for the period [0, 1] years, and then for the period 1+ years…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## year 1</span></span>
+<span id="cb6-2">group <span class="ot" style="color: #003B4F;">&lt;-</span> z_2 <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">50</span></span>
+<span id="cb6-3">year_one_t <span class="ot" style="color: #003B4F;">&lt;-</span> surv_t</span>
+<span id="cb6-4">year_one_event <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="dv" style="color: #AD0000;">1000</span>)</span>
+<span id="cb6-5">year_one_event[year_one_t <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">1</span>] <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">0</span></span>
+<span id="cb6-6">year_one_t[year_one_t <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">1</span>] <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">1</span></span>
+<span id="cb6-7"></span>
+<span id="cb6-8"><span class="fu" style="color: #4758AB;">coxph</span>(<span class="fu" style="color: #4758AB;">Surv</span>(year_one_t, year_one_event) <span class="sc" style="color: #5E5E5E;">~</span> group)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Call:
+coxph(formula = Surv(year_one_t, year_one_event) ~ group)
+
+            coef exp(coef) se(coef)     z      p
+groupTRUE 2.1509    8.5922   0.1171 18.36 &lt;2e-16
+
+Likelihood ratio test=456.3  on 1 df, p=&lt; 2.2e-16
+n= 1000, number of events= 494 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## beyond year 1</span></span>
+<span id="cb8-2">group <span class="ot" style="color: #003B4F;">&lt;-</span> group[surv_t <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">1</span>]</span>
+<span id="cb8-3">beyond_one_t <span class="ot" style="color: #003B4F;">&lt;-</span> surv_t[surv_t <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">1</span>]</span>
+<span id="cb8-4">beyond_one_event <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="dv" style="color: #AD0000;">1000</span>)[surv_t <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">1</span>]</span>
+<span id="cb8-5"></span>
+<span id="cb8-6"><span class="fu" style="color: #4758AB;">coxph</span>(<span class="fu" style="color: #4758AB;">Surv</span>(beyond_one_t, beyond_one_event) <span class="sc" style="color: #5E5E5E;">~</span> group)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Call:
+coxph(formula = Surv(beyond_one_t, beyond_one_event) ~ group)
+
+           coef exp(coef) se(coef)     z      p
+groupTRUE 1.352     3.867    0.121 11.17 &lt;2e-16
+
+Likelihood ratio test=98.73  on 1 df, p=&lt; 2.2e-16
+n= 506, number of events= 506 </code></pre>
+</div>
+</div>
+<p>Ok, so the average hazard ratio between these two groups is about 9 during the first year (where around half of the events occur), then the average hazard ratio is much lower (but still high) after year one.</p>
+<p>That’s kind of extreme. Even an <a href="https://www.sciencedirect.com/science/article/pii/S1047279705003248">optimistic view of the benefits of covariate adjustment</a> only considers HRs between 2 and 5.</p>
+<p>What happens when we change the parameter constellation so that <img src="https://latex.codecogs.com/png.latex?Z_2"> is still very strongly prognostic, but perhaps something a bit more reasonable? Something like this…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1">n <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">1000</span></span>
+<span id="cb10-2">beta_0 <span class="ot" style="color: #003B4F;">=</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">4</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="fl" style="color: #AD0000;">0.075</span> <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">50</span></span>
+<span id="cb10-3">beta_2 <span class="ot" style="color: #003B4F;">=</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.15</span> <span class="sc" style="color: #5E5E5E;">+</span> <span class="fl" style="color: #AD0000;">0.075</span></span>
+<span id="cb10-4">z_2 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rnorm</span>(n, <span class="at" style="color: #657422;">mean =</span> <span class="dv" style="color: #AD0000;">50</span>, <span class="at" style="color: #657422;">sd =</span> <span class="dv" style="color: #AD0000;">10</span>)</span>
+<span id="cb10-5">surv_t <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">exp</span>(<span class="fu" style="color: #4758AB;">rnorm</span>(n, <span class="at" style="color: #657422;">mean =</span> beta_0 <span class="sc" style="color: #5E5E5E;">+</span> beta_2 <span class="sc" style="color: #5E5E5E;">*</span> z_2)) <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">100000</span></span>
+<span id="cb10-6"></span>
+<span id="cb10-7">fit_km <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">survfit</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t, <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, n)) <span class="sc" style="color: #5E5E5E;">~</span> <span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb10-8">below_50 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">survfit</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t[z_2 <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="dv" style="color: #AD0000;">50</span>], <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, n)[z_2 <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="dv" style="color: #AD0000;">50</span>]) <span class="sc" style="color: #5E5E5E;">~</span> <span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb10-9">above_50 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">survfit</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t[z_2 <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">50</span>], <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, n)[z_2 <span class="sc" style="color: #5E5E5E;">&gt;</span> <span class="dv" style="color: #AD0000;">50</span>]) <span class="sc" style="color: #5E5E5E;">~</span> <span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb10-10"></span>
+<span id="cb10-11"><span class="fu" style="color: #4758AB;">plot</span>(fit_km, <span class="at" style="color: #657422;">conf.int =</span> <span class="cn" style="color: #8f5902;">FALSE</span>, <span class="at" style="color: #657422;">xlim =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>,<span class="dv" style="color: #AD0000;">10</span>))</span>
+<span id="cb10-12"><span class="fu" style="color: #4758AB;">points</span>(below_50<span class="sc" style="color: #5E5E5E;">$</span>time, below_50<span class="sc" style="color: #5E5E5E;">$</span>surv, <span class="at" style="color: #657422;">type =</span> <span class="st" style="color: #20794D;">"l"</span>, <span class="at" style="color: #657422;">col =</span> <span class="dv" style="color: #AD0000;">2</span>)</span>
+<span id="cb10-13"><span class="fu" style="color: #4758AB;">points</span>(above_50<span class="sc" style="color: #5E5E5E;">$</span>time, above_50<span class="sc" style="color: #5E5E5E;">$</span>surv, <span class="at" style="color: #657422;">type =</span> <span class="st" style="color: #20794D;">"l"</span>, <span class="at" style="color: #657422;">col =</span> <span class="dv" style="color: #AD0000;">3</span>)</span>
+<span id="cb10-14"><span class="fu" style="color: #4758AB;">legend</span>(<span class="st" style="color: #20794D;">"topright"</span>, <span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"Z_2 &lt; 50"</span>, <span class="st" style="color: #20794D;">"Z_2 &gt; 50"</span>),</span>
+<span id="cb10-15">       <span class="at" style="color: #657422;">lty =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">1</span>,<span class="dv" style="color: #AD0000;">1</span>),</span>
+<span id="cb10-16">       <span class="at" style="color: #657422;">col =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">2</span>,<span class="dv" style="color: #AD0000;">3</span>))</span></code></pre></div>
+<div class="cell-output-display">
+<p><img src="https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Then, repeating the simulation to estimate the type 1 error rate…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1">res <span class="ot" style="color: #003B4F;">&lt;-</span> purrr<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">map_dbl</span>(<span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">200</span>, <span class="dv" style="color: #AD0000;">10000</span>), sim_one_trial,</span>
+<span id="cb11-2">                      <span class="at" style="color: #657422;">beta_0 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">4</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="fl" style="color: #AD0000;">0.075</span> <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">50</span>, <span class="at" style="color: #657422;">beta_2 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.15</span> <span class="sc" style="color: #5E5E5E;">+</span> <span class="fl" style="color: #AD0000;">0.075</span>)</span>
+<span id="cb11-3"></span>
+<span id="cb11-4"><span class="fu" style="color: #4758AB;">mean</span>(res <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0376</code></pre>
+</div>
+</div>
+</section>
+<section id="case-2-with-censoring" class="level2">
+<h2 class="anchored" data-anchor-id="case-2-with-censoring">Case 2: with censoring</h2>
+<p><a href="https://onlinelibrary.wiley.com/doi/epdf/10.1002/sim.3406">Jiang H et al.,Stat Med (2008)</a> show that with censoring rates of 20% and 40%, the type 1 error inflation is similar to the no censoring case.</p>
+<p>However, their censoring mechanism is a competing exponential distribution. I don’t think this is realistic. Owing to the heavy tail of the log-normal distribution, these trials would carry on for decades.</p>
+<p>Let’s repeat the simulations but with administrative censoring driven by a trial recruitment process that is uniform and lasts one year, plus a total trial duration of three years…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## function to simulate data from one trial,</span></span>
+<span id="cb13-2"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## fit Cox model, and estimate adjusted hazard</span></span>
+<span id="cb13-3"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## ratio (treatment effect, beta_1)</span></span>
+<span id="cb13-4">sim_one_trial_with_censoring <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(n, <span class="at" style="color: #657422;">beta_0 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">4</span>, <span class="at" style="color: #657422;">beta_2 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.15</span>,</span>
+<span id="cb13-5">                                         <span class="at" style="color: #657422;">trial_duration =</span> <span class="fl" style="color: #AD0000;">3e-06</span>, <span class="at" style="color: #657422;">rec_duration =</span> <span class="fl" style="color: #AD0000;">1e-06</span>){</span>
+<span id="cb13-6"></span>
+<span id="cb13-7">  z_1 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"c"</span>, <span class="st" style="color: #20794D;">"e"</span>), <span class="at" style="color: #657422;">each =</span> n)</span>
+<span id="cb13-8">  z_2 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rnorm</span>(<span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">*</span> n, <span class="at" style="color: #657422;">mean =</span> <span class="dv" style="color: #AD0000;">50</span>, <span class="at" style="color: #657422;">sd =</span> <span class="dv" style="color: #AD0000;">10</span>)</span>
+<span id="cb13-9">  t_c_e <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">exp</span>(<span class="fu" style="color: #4758AB;">rnorm</span>(<span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">*</span> n, <span class="at" style="color: #657422;">mean =</span> beta_0 <span class="sc" style="color: #5E5E5E;">+</span> beta_2 <span class="sc" style="color: #5E5E5E;">*</span> z_2))</span>
+<span id="cb13-10">  rec <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">runif</span>(<span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">*</span> n, <span class="dv" style="color: #AD0000;">0</span>, rec_duration)</span>
+<span id="cb13-11">  events <span class="ot" style="color: #003B4F;">&lt;-</span> rec <span class="sc" style="color: #5E5E5E;">+</span> t_c_e <span class="sc" style="color: #5E5E5E;">&lt;</span> trial_duration</span>
+<span id="cb13-12">  t_c_e[events <span class="sc" style="color: #5E5E5E;">==</span> <span class="dv" style="color: #AD0000;">0</span>] <span class="ot" style="color: #003B4F;">&lt;-</span> (trial_duration <span class="sc" style="color: #5E5E5E;">-</span> rec)[events <span class="sc" style="color: #5E5E5E;">==</span> <span class="dv" style="color: #AD0000;">0</span>]</span>
+<span id="cb13-13"></span>
+<span id="cb13-14">  fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">coxph</span>(<span class="fu" style="color: #4758AB;">Surv</span>(t_c_e, events) <span class="sc" style="color: #5E5E5E;">~</span>  z_1 <span class="sc" style="color: #5E5E5E;">+</span> z_2)</span>
+<span id="cb13-15">  </span>
+<span id="cb13-16">  z <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">summary</span>(fit)<span class="sc" style="color: #5E5E5E;">$</span>coef[<span class="dv" style="color: #AD0000;">1</span>, <span class="st" style="color: #20794D;">"z"</span>]</span>
+<span id="cb13-17"></span>
+<span id="cb13-18">}</span></code></pre></div>
+</div>
+<p>Firstly for the original (extreme) example…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate 1000 trials, with n = 200 per arm</span></span>
+<span id="cb14-2">res <span class="ot" style="color: #003B4F;">&lt;-</span> purrr<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">map_dbl</span>(<span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">200</span>, <span class="dv" style="color: #AD0000;">10000</span>), sim_one_trial_with_censoring)</span>
+<span id="cb14-3"></span>
+<span id="cb14-4"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## estimate type I error rate</span></span>
+<span id="cb14-5"><span class="fu" style="color: #4758AB;">mean</span>(res <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0461</code></pre>
+</div>
+</div>
+<p>and then for the slightly more realistic one…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate 1000 trials, with n = 200 per arm</span></span>
+<span id="cb16-2"></span>
+<span id="cb16-3">res <span class="ot" style="color: #003B4F;">&lt;-</span> purrr<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">map_dbl</span>(<span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">200</span>, <span class="dv" style="color: #AD0000;">10000</span>), sim_one_trial_with_censoring,</span>
+<span id="cb16-4">                <span class="at" style="color: #657422;">beta_0 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">4</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="fl" style="color: #AD0000;">0.075</span> <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">50</span>,</span>
+<span id="cb16-5">                      <span class="at" style="color: #657422;">beta_2 =</span> <span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.15</span> <span class="sc" style="color: #5E5E5E;">+</span> <span class="fl" style="color: #AD0000;">0.075</span>)</span>
+<span id="cb16-6"></span>
+<span id="cb16-7"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## estimate type I error rate</span></span>
+<span id="cb16-8"><span class="fu" style="color: #4758AB;">mean</span>(res <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0287</code></pre>
+</div>
+</div>
+</section>
+<section id="conclusions" class="level2">
+<h2 class="anchored" data-anchor-id="conclusions">Conclusions</h2>
+<p>My intuition before writing this blogpost was that I wouldn’t be too concerned about type 1 error inflation when fitting a Cox model with a continuous covariate entering as a simple linear term, even when that model is inevitably wrong.</p>
+<p>Have I changed my mind? Not yet. I’m guessing, with enough effort, someone could produce a realistic-looking example where there is a <em>considerable</em> increase in Type 1 error. But, in my opinion, the example cited by the EMA in their letter doesn’t provide that (it’s no slam dunk, at least).</p>
+
+
+</section>
+
+ ]]></description>
+  <category>news</category>
+  <guid>https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index.html</guid>
+  <pubDate>Tue, 30 May 2023 22:00:00 GMT</pubDate>
+</item>
+<item>
+  <title>Old blog</title>
   <dc:creator>Dominic Magirr</dc:creator>
   <link>https://dominicmagirr.github.io/blog/posts/old-blog-posts/index.html</link>
   <description><![CDATA[ 
@@ -28,7 +271,6 @@
   <category>news</category>
   <guid>https://dominicmagirr.github.io/blog/posts/old-blog-posts/index.html</guid>
   <pubDate>Tue, 04 Apr 2023 22:00:00 GMT</pubDate>
-  <media:content url="https://dominicmagirr.github.io/blog/posts/old-blog-posts/old_blog.PNG" medium="image"/>
 </item>
 </channel>
 </rss>

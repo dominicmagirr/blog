@@ -13,5 +13,8 @@
   },
   "posts/old-blog-posts/index.qmd": {
     "index.html": "c7513daf"
+  },
+  "posts/stratify_or_adjust/index.Rmd": {
+    "index.html": "17358458"
   }
 }
