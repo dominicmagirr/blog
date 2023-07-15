@@ -1,19 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://dominicmagirr.github.io/blog/about.html</loc>
+    <lastmod>2023-07-15T14:13:21.120Z</lastmod>
+  </url>
+  <url>
     <loc>https://dominicmagirr.github.io/blog/index.html</loc>
-    <lastmod>2023-05-31T18:59:34.275Z</lastmod>
+    <lastmod>2023-07-15T14:13:21.831Z</lastmod>
+  </url>
+  <url>
+    <loc>https://dominicmagirr.github.io/blog/posts/conditional_inference/index.html</loc>
+    <lastmod>2023-07-15T14:13:22.740Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/old-blog-posts/index.html</loc>
-    <lastmod>2023-05-31T16:17:23.602Z</lastmod>
-  </url>
-  <url>
-    <loc>https://dominicmagirr.github.io/blog/about.html</loc>
-    <lastmod>2023-05-31T16:19:16.487Z</lastmod>
+    <lastmod>2023-07-15T14:13:23.191Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index.html</loc>
-    <lastmod>2023-05-31T18:59:40.212Z</lastmod>
+    <lastmod>2023-07-15T14:13:24.098Z</lastmod>
   </url>
 </urlset>

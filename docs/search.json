@@ -1,10 +1,31 @@
 [
   {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "A place to share updates of my work on statistical methodology in clinical trials."
+  },
+  {
     "objectID": "index.html",
     "href": "index.html",
     "title": "Posts",
     "section": "",
-    "text": "Stratified or covariate adjusted Cox model?\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nMay 31, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nOld blog\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nApr 5, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\nNo matching items"
+    "text": "Covariate adjustment in RCTs: should we condition on baseline observations?\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nJul 15, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nStratified or covariate adjusted Cox model?\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nMay 31, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nOld blog\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nApr 5, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "posts/conditional_inference/index.html",
+    "href": "posts/conditional_inference/index.html",
+    "title": "Covariate adjustment in RCTs: should we condition on baseline observations?",
+    "section": "",
+    "text": "Consider a randomized controlled trial (RCT) with patients \\(i=1,..., N\\), randomized to treatment \\(A_i = 1\\) or \\(A_i=0\\) with probability \\(1/2\\). Suppose there is a continuous outcome \\(Y_i\\).\nShould we perform inference conditional on the observed \\(A\\)? For example, are we more interested in a confidence interval \\(CI_{A}\\) for \\(\\theta\\) (a treatment effect, say) such that\n\\[P(\\theta \\in CI_A \\mid A) = 1 - \\alpha ?\\]\nOr would we prefer to not condition on \\(A\\), and aim for a confidence interval \\(CI\\) such that\n\\[P(\\theta \\in CI) = 1 - \\alpha \\] across multiple realizations of the experiment, each with different \\(A\\)’s.\nAs a concrete example, for a simple Gaussian model with known variance \\(\\sigma^2\\), suppose \\(N=500\\) but we end up with \\(N_1= 230\\) and \\(N_0= 270\\). Do we prefer to estimate the variance of the difference-in-means estimator via\n\\(\\frac{\\sigma^2}{230} + \\frac{\\sigma^2}{270}\\)\nor via\n\\(\\frac{\\sigma^2}{250} + \\frac{\\sigma^2}{250} ?\\)\nI think it’s fair to say that a majority would prefer the first option, i.e., conditional on \\(A\\)."
+  },
+  {
+    "objectID": "posts/conditional_inference/index.html#my-thoughts-on-this-example",
+    "href": "posts/conditional_inference/index.html#my-thoughts-on-this-example",
+    "title": "Covariate adjustment in RCTs: should we condition on baseline observations?",
+    "section": "My thoughts on this example",
+    "text": "My thoughts on this example\nFor me, neither \\(CI_A\\) nor \\(CI_{A,X}\\) feel satisfactory in this example. I guess this just shows that I like to condition, since there is nothing technically wrong with \\(CI_A\\).\nMy takeaway is that we need to use a half-decent model. This may conflict with the need to pre-specify a primary analysis method in an RCT and we need to find a pragmatic way through that conflict. I don’t think \\(CI_A\\) necessarily saves us from this."
   },
   {
     "objectID": "posts/old-blog-posts/index.html",
@@ -12,13 +33,6 @@
     "title": "Old blog",
     "section": "",
     "text": "Previous blogposts can be found here"
-  },
-  {
-    "objectID": "about.html",
-    "href": "about.html",
-    "title": "About",
-    "section": "",
-    "text": "A place to share updates of my work on statistical methodology in clinical trials."
   },
   {
     "objectID": "posts/stratify_or_adjust/index.html",
