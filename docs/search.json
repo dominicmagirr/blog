@@ -11,7 +11,7 @@
     "href": "index.html",
     "title": "Posts",
     "section": "",
-    "text": "Covariate adjustment in RCTs: should we condition on baseline observations?\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nJul 15, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nStratified or covariate adjusted Cox model?\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nMay 31, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nOld blog\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nApr 5, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\nNo matching items"
+    "text": "Simulate from a Normal-inverse-Wishart distribution\n\n\n\n\n\n\n\nR\n\n\n\n\n\n\n\n\n\n\n\nAug 8, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nCovariate adjustment in RCTs: should we condition on baseline observations?\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nJul 15, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nStratified or covariate adjusted Cox model?\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nMay 31, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\n\n\nOld blog\n\n\n\n\n\n\n\nnews\n\n\n\n\n\n\n\n\n\n\n\nApr 5, 2023\n\n\nDominic Magirr\n\n\n\n\n\n\nNo matching items"
   },
   {
     "objectID": "posts/conditional_inference/index.html",
@@ -26,6 +26,27 @@
     "title": "Covariate adjustment in RCTs: should we condition on baseline observations?",
     "section": "My thoughts on this example",
     "text": "My thoughts on this example\nFor me, neither \\(CI_A\\) nor \\(CI_{A,X}\\) feel satisfactory in this example. I guess this just shows that I like to condition, since there is nothing technically wrong with \\(CI_A\\).\nMy takeaway is that we need to use a half-decent model. This may conflict with the need to pre-specify a primary analysis method in an RCT and we need to find a pragmatic way through that conflict. I don’t think \\(CI_A\\) necessarily saves us from this."
+  },
+  {
+    "objectID": "posts/normal_inverse_wishart/index.html",
+    "href": "posts/normal_inverse_wishart/index.html",
+    "title": "Simulate from a Normal-inverse-Wishart distribution",
+    "section": "",
+    "text": "Given some data which I assume is multivariate Gaussian, I’d like to simulate from the posterior distribution of the model parameters.\nThe conjugate Bayesian analysis is a Normal-inverse-Wishart distribution.\nI’d like to do this very quickly based on snippets from wikipedia, rather than thinking much about it."
+  },
+  {
+    "objectID": "posts/normal_inverse_wishart/index.html#snippets-from-wikipedia",
+    "href": "posts/normal_inverse_wishart/index.html#snippets-from-wikipedia",
+    "title": "Simulate from a Normal-inverse-Wishart distribution",
+    "section": "Snippets from wikipedia",
+    "text": "Snippets from wikipedia\nHere is the first snippet…\n\nTo sample from the joint posterior of \\((\\mu, \\Sigma)\\), one simply draws samples from \\(\\Sigma \\mid y \\sim W^{-1}(\\Psi_n, \\nu_n)\\), then draw \\(\\mu \\mid \\Sigma, y \\sim N_p(\\mu_n, \\Sigma / \\lambda_n)\\), where\n\n\\[\\mu_n = \\frac{\\lambda\\mu_0+n\\bar{y}}{\\lambda + n}\\]\n\\[\\lambda_n = \\lambda + n\\]\n\\[\\nu_n = \\nu + n\\]\n\\[\\Psi_n = \\Psi + S + \\frac{\\lambda n}{\\lambda + n}(\\bar{y}-\\mu_0)(\\bar{y}-\\mu_0)^T\\]\nwhere\n\\[S = \\sum_{i=1}^n  (y_i -\\bar{y})(y_i - \\bar{y})^T.\\]\nOk, so this assumes we have used a prior distribution:\n\\[\\Sigma \\sim W^{-1}(\\Psi, \\nu)\\]\n\\[\\mu \\mid \\Sigma \\sim N(\\mu_0, \\Sigma/\\lambda)\\]\nI don’t want to think too hard about prior distributions, even though that’s dangerous. It isn’t the point of this exercise. I want \\(\\mu_0\\), \\(\\lambda\\), \\(\\nu\\) and \\(\\Psi\\) to be small. Let’s just say zero for now, even if that’s a terrible idea. This way I’ve reduced the problem to drawing samples from \\(\\Sigma \\mid y \\sim W^{-1}(S, n)\\), then \\(\\mu \\mid \\Sigma, y \\sim N_p(\\bar{y}, \\Sigma / n)\\).\nThe second snippet (from a different page) is…\n\nIf \\(X\\sim W(\\Sigma, \\nu)\\), then \\(A = X^{-1}\\) has an inverse-Wishart distribution \\(A \\sim W^{-1}(\\Sigma^{-1}, \\nu).\\)\n\nOk, so this is mixing up notation now. Our target in our original notation is \\(\\Sigma \\mid y \\sim W^{-1}(S, n)\\). This snippet says we can achieve that by simulating \\(X\\) from a Wishart distribution \\(X\\sim W(S^{-1}, n)\\), and then taking \\(\\Sigma = X^{-1}\\)."
+  },
+  {
+    "objectID": "posts/normal_inverse_wishart/index.html#example-in-r",
+    "href": "posts/normal_inverse_wishart/index.html#example-in-r",
+    "title": "Simulate from a Normal-inverse-Wishart distribution",
+    "section": "Example in R",
+    "text": "Example in R\n\n# simulate some 3-dimensional normal data, n = 20\n\nn <- 20\n\nY <- mvtnorm::rmvnorm(n = n,\n\n                      mean = c(180, 190, 200),\n\n                      sigma = matrix(70, 3, 3) + diag(30, 3))\n\n \n\n# calculate Y_bar and S\n\nY_bar <- colMeans(Y)\n\nS <- (t(Y) - Y_bar) %*% t(t(Y) - Y_bar)\n\n \n\n# simulate from inverse-Wishart distribution\n\nX <- rWishart(1, df = n, Sigma = solve(S))\n\nSigma <- solve(X[,,1])\n\nSigma\n\n          [,1]      [,2]     [,3]\n[1,] 101.98658  78.70226 77.46274\n[2,]  78.70226 104.04191 74.81375\n[3,]  77.46274  74.81375 98.78784\n\n## simulate from normal distribution\n\nmu <- mvtnorm::rmvnorm(1, mean = Y_bar, sigma = Sigma / n)\n\nmu\n\n         [,1]     [,2]     [,3]\n[1,] 180.9995 191.0862 201.4866"
   },
   {
     "objectID": "posts/old-blog-posts/index.html",

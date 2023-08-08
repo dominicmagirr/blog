@@ -19,5 +19,11 @@
   },
   "posts/conditional_inference/index.Rmd": {
     "index.html": "3c4f2735"
+  },
+  "posts/normal_inverse_wishart/index.Rmd": {
+    "index.html": "f2ded15b"
+  },
+  "posts/normal_inverse_wishart/index.rmarkdown": {
+    "index.html": "d7832c66"
   }
 }

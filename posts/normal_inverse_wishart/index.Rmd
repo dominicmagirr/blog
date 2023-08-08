@@ -1,0 +1,128 @@
+---
+title: "Simulate from a Normal-inverse-Wishart distribution"
+author: "Dominic Magirr"
+date: "2023-08-08"
+categories: [R]
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+
+## The problem
+
+ 
+
+- Given some data which I assume is multivariate Gaussian, I'd like to simulate from the posterior distribution of the model parameters.
+
+ 
+
+- The conjugate Bayesian analysis is a [Normal-inverse-Wishart distribution](https://en.wikipedia.org/wiki/Normal-inverse-Wishart_distribution).
+
+ 
+
+- I'd like to do this very quickly based on snippets from wikipedia, rather than thinking much about it.
+
+ 
+
+## Snippets from wikipedia
+
+ 
+
+Here is the first snippet...
+
+ 
+
+> To sample from the joint posterior of $(\mu, \Sigma)$, one simply draws samples from $\Sigma \mid y \sim W^{-1}(\Psi_n, \nu_n)$, then draw $\mu \mid \Sigma, y \sim N_p(\mu_n, \Sigma / \lambda_n)$, where
+
+$$\mu_n = \frac{\lambda\mu_0+n\bar{y}}{\lambda + n}$$
+
+$$\lambda_n = \lambda + n$$
+
+$$\nu_n = \nu + n$$
+
+$$\Psi_n = \Psi + S + \frac{\lambda n}{\lambda + n}(\bar{y}-\mu_0)(\bar{y}-\mu_0)^T$$
+
+where
+
+$$S = \sum_{i=1}^n  (y_i -\bar{y})(y_i - \bar{y})^T.$$
+
+ 
+
+ 
+
+Ok, so this assumes we have used a prior distribution:
+
+ 
+
+$$\Sigma \sim W^{-1}(\Psi, \nu)$$
+
+$$\mu \mid \Sigma \sim N(\mu_0, \Sigma/\lambda)$$
+
+I don't want to think too hard about prior distributions, even though that's dangerous. It isn't the point of this exercise. I want $\mu_0$, $\lambda$, $\nu$ and $\Psi$ to be small. Let's just say zero for now, even if that's a terrible idea. This way I've reduced the problem to drawing samples from $\Sigma \mid y \sim W^{-1}(S, n)$, then $\mu \mid \Sigma, y \sim N_p(\bar{y}, \Sigma / n)$.
+
+ 
+
+ 
+
+The second snippet [(from a different page)](https://en.wikipedia.org/wiki/Inverse-Wishart_distribution) is...
+
+ 
+
+> If $X\sim W(\Sigma, \nu)$, then $A = X^{-1}$ has an inverse-Wishart distribution $A \sim W^{-1}(\Sigma^{-1}, \nu).$
+
+ 
+
+Ok, so this is mixing up notation now. Our target in our original notation is $\Sigma \mid y \sim W^{-1}(S, n)$. This snippet says we can achieve that by simulating $X$ from a Wishart distribution $X\sim W(S^{-1}, n)$, and then taking $\Sigma = X^{-1}$.
+
+ 
+
+## Example in R
+
+ 
+
+```{r}
+
+# simulate some 3-dimensional normal data, n = 20
+
+n <- 20
+
+Y <- mvtnorm::rmvnorm(n = n,
+
+                      mean = c(180, 190, 200),
+
+                      sigma = matrix(70, 3, 3) + diag(30, 3))
+
+ 
+
+# calculate Y_bar and S
+
+Y_bar <- colMeans(Y)
+
+S <- (t(Y) - Y_bar) %*% t(t(Y) - Y_bar)
+
+ 
+
+# simulate from inverse-Wishart distribution
+
+X <- rWishart(1, df = n, Sigma = solve(S))
+
+Sigma <- solve(X[,,1])
+
+Sigma
+
+ 
+
+## simulate from normal distribution
+
+mu <- mvtnorm::rmvnorm(1, mean = Y_bar, sigma = Sigma / n)
+
+mu
+
+```
+
+ 

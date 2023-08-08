@@ -10,7 +10,102 @@
 <atom:link href="https://dominicmagirr.github.io/blog/index.xml" rel="self" type="application/rss+xml"/>
 <description>A blog about statistical methodology in clinical trials</description>
 <generator>quarto-1.2.475</generator>
-<lastBuildDate>Fri, 14 Jul 2023 22:00:00 GMT</lastBuildDate>
+<lastBuildDate>Mon, 07 Aug 2023 22:00:00 GMT</lastBuildDate>
+<item>
+  <title>Simulate from a Normal-inverse-Wishart distribution</title>
+  <dc:creator>Dominic Magirr</dc:creator>
+  <link>https://dominicmagirr.github.io/blog/posts/normal_inverse_wishart/index.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<section id="the-problem" class="level2">
+<h2 class="anchored" data-anchor-id="the-problem">The problem</h2>
+<ul>
+<li><p>Given some data which I assume is multivariate Gaussian, I’d like to simulate from the posterior distribution of the model parameters.</p></li>
+<li><p>The conjugate Bayesian analysis is a <a href="https://en.wikipedia.org/wiki/Normal-inverse-Wishart_distribution">Normal-inverse-Wishart distribution</a>.</p></li>
+<li><p>I’d like to do this very quickly based on snippets from wikipedia, rather than thinking much about it.</p></li>
+</ul>
+</section>
+<section id="snippets-from-wikipedia" class="level2">
+<h2 class="anchored" data-anchor-id="snippets-from-wikipedia">Snippets from wikipedia</h2>
+<p>Here is the first snippet…</p>
+<blockquote class="blockquote">
+<p>To sample from the joint posterior of <img src="https://latex.codecogs.com/png.latex?(%5Cmu,%20%5CSigma)">, one simply draws samples from <img src="https://latex.codecogs.com/png.latex?%5CSigma%20%5Cmid%20y%20%5Csim%20W%5E%7B-1%7D(%5CPsi_n,%20%5Cnu_n)">, then draw <img src="https://latex.codecogs.com/png.latex?%5Cmu%20%5Cmid%20%5CSigma,%20y%20%5Csim%20N_p(%5Cmu_n,%20%5CSigma%20/%20%5Clambda_n)">, where</p>
+</blockquote>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cmu_n%20=%20%5Cfrac%7B%5Clambda%5Cmu_0+n%5Cbar%7By%7D%7D%7B%5Clambda%20+%20n%7D"></p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Clambda_n%20=%20%5Clambda%20+%20n"></p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cnu_n%20=%20%5Cnu%20+%20n"></p>
+<p><img src="https://latex.codecogs.com/png.latex?%5CPsi_n%20=%20%5CPsi%20+%20S%20+%20%5Cfrac%7B%5Clambda%20n%7D%7B%5Clambda%20+%20n%7D(%5Cbar%7By%7D-%5Cmu_0)(%5Cbar%7By%7D-%5Cmu_0)%5ET"></p>
+<p>where</p>
+<p><img src="https://latex.codecogs.com/png.latex?S%20=%20%5Csum_%7Bi=1%7D%5En%20%20(y_i%20-%5Cbar%7By%7D)(y_i%20-%20%5Cbar%7By%7D)%5ET."></p>
+<p>Ok, so this assumes we have used a prior distribution:</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5CSigma%20%5Csim%20W%5E%7B-1%7D(%5CPsi,%20%5Cnu)"></p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cmu%20%5Cmid%20%5CSigma%20%5Csim%20N(%5Cmu_0,%20%5CSigma/%5Clambda)"></p>
+<p>I don’t want to think too hard about prior distributions, even though that’s dangerous. It isn’t the point of this exercise. I want <img src="https://latex.codecogs.com/png.latex?%5Cmu_0">, <img src="https://latex.codecogs.com/png.latex?%5Clambda">, <img src="https://latex.codecogs.com/png.latex?%5Cnu"> and <img src="https://latex.codecogs.com/png.latex?%5CPsi"> to be small. Let’s just say zero for now, even if that’s a terrible idea. This way I’ve reduced the problem to drawing samples from <img src="https://latex.codecogs.com/png.latex?%5CSigma%20%5Cmid%20y%20%5Csim%20W%5E%7B-1%7D(S,%20n)">, then <img src="https://latex.codecogs.com/png.latex?%5Cmu%20%5Cmid%20%5CSigma,%20y%20%5Csim%20N_p(%5Cbar%7By%7D,%20%5CSigma%20/%20n)">.</p>
+<p>The second snippet <a href="https://en.wikipedia.org/wiki/Inverse-Wishart_distribution">(from a different page)</a> is…</p>
+<blockquote class="blockquote">
+<p>If <img src="https://latex.codecogs.com/png.latex?X%5Csim%20W(%5CSigma,%20%5Cnu)">, then <img src="https://latex.codecogs.com/png.latex?A%20=%20X%5E%7B-1%7D"> has an inverse-Wishart distribution <img src="https://latex.codecogs.com/png.latex?A%20%5Csim%20W%5E%7B-1%7D(%5CSigma%5E%7B-1%7D,%20%5Cnu)."></p>
+</blockquote>
+<p>Ok, so this is mixing up notation now. Our target in our original notation is <img src="https://latex.codecogs.com/png.latex?%5CSigma%20%5Cmid%20y%20%5Csim%20W%5E%7B-1%7D(S,%20n)">. This snippet says we can achieve that by simulating <img src="https://latex.codecogs.com/png.latex?X"> from a Wishart distribution <img src="https://latex.codecogs.com/png.latex?X%5Csim%20W(S%5E%7B-1%7D,%20n)">, and then taking <img src="https://latex.codecogs.com/png.latex?%5CSigma%20=%20X%5E%7B-1%7D">.</p>
+</section>
+<section id="example-in-r" class="level2">
+<h2 class="anchored" data-anchor-id="example-in-r">Example in R</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="co" style="color: #5E5E5E;"># simulate some 3-dimensional normal data, n = 20</span></span>
+<span id="cb1-2"></span>
+<span id="cb1-3">n <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">20</span></span>
+<span id="cb1-4"></span>
+<span id="cb1-5">Y <span class="ot" style="color: #003B4F;">&lt;-</span> mvtnorm<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">rmvnorm</span>(<span class="at" style="color: #657422;">n =</span> n,</span>
+<span id="cb1-6"></span>
+<span id="cb1-7">                      <span class="at" style="color: #657422;">mean =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">180</span>, <span class="dv" style="color: #AD0000;">190</span>, <span class="dv" style="color: #AD0000;">200</span>),</span>
+<span id="cb1-8"></span>
+<span id="cb1-9">                      <span class="at" style="color: #657422;">sigma =</span> <span class="fu" style="color: #4758AB;">matrix</span>(<span class="dv" style="color: #AD0000;">70</span>, <span class="dv" style="color: #AD0000;">3</span>, <span class="dv" style="color: #AD0000;">3</span>) <span class="sc" style="color: #5E5E5E;">+</span> <span class="fu" style="color: #4758AB;">diag</span>(<span class="dv" style="color: #AD0000;">30</span>, <span class="dv" style="color: #AD0000;">3</span>))</span>
+<span id="cb1-10"></span>
+<span id="cb1-11"> </span>
+<span id="cb1-12"></span>
+<span id="cb1-13"><span class="co" style="color: #5E5E5E;"># calculate Y_bar and S</span></span>
+<span id="cb1-14"></span>
+<span id="cb1-15">Y_bar <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">colMeans</span>(Y)</span>
+<span id="cb1-16"></span>
+<span id="cb1-17">S <span class="ot" style="color: #003B4F;">&lt;-</span> (<span class="fu" style="color: #4758AB;">t</span>(Y) <span class="sc" style="color: #5E5E5E;">-</span> Y_bar) <span class="sc" style="color: #5E5E5E;">%*%</span> <span class="fu" style="color: #4758AB;">t</span>(<span class="fu" style="color: #4758AB;">t</span>(Y) <span class="sc" style="color: #5E5E5E;">-</span> Y_bar)</span>
+<span id="cb1-18"></span>
+<span id="cb1-19"> </span>
+<span id="cb1-20"></span>
+<span id="cb1-21"><span class="co" style="color: #5E5E5E;"># simulate from inverse-Wishart distribution</span></span>
+<span id="cb1-22"></span>
+<span id="cb1-23">X <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rWishart</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">df =</span> n, <span class="at" style="color: #657422;">Sigma =</span> <span class="fu" style="color: #4758AB;">solve</span>(S))</span>
+<span id="cb1-24"></span>
+<span id="cb1-25">Sigma <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">solve</span>(X[,,<span class="dv" style="color: #AD0000;">1</span>])</span>
+<span id="cb1-26"></span>
+<span id="cb1-27">Sigma</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          [,1]      [,2]     [,3]
+[1,] 101.98658  78.70226 77.46274
+[2,]  78.70226 104.04191 74.81375
+[3,]  77.46274  74.81375 98.78784</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate from normal distribution</span></span>
+<span id="cb3-2"></span>
+<span id="cb3-3">mu <span class="ot" style="color: #003B4F;">&lt;-</span> mvtnorm<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">rmvnorm</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">mean =</span> Y_bar, <span class="at" style="color: #657422;">sigma =</span> Sigma <span class="sc" style="color: #5E5E5E;">/</span> n)</span>
+<span id="cb3-4"></span>
+<span id="cb3-5">mu</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>         [,1]     [,2]     [,3]
+[1,] 180.9995 191.0862 201.4866</code></pre>
+</div>
+</div>
+
+
+</section>
+
+ ]]></description>
+  <category>R</category>
+  <guid>https://dominicmagirr.github.io/blog/posts/normal_inverse_wishart/index.html</guid>
+  <pubDate>Mon, 07 Aug 2023 22:00:00 GMT</pubDate>
+</item>
 <item>
   <title>Covariate adjustment in RCTs: should we condition on baseline observations?</title>
   <dc:creator>Dominic Magirr</dc:creator>

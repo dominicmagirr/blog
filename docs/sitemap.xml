@@ -2,22 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://dominicmagirr.github.io/blog/about.html</loc>
-    <lastmod>2023-07-15T14:13:21.120Z</lastmod>
+    <lastmod>2023-08-08T18:52:36.155Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/index.html</loc>
-    <lastmod>2023-07-15T14:13:21.831Z</lastmod>
+    <lastmod>2023-08-08T18:52:36.729Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/conditional_inference/index.html</loc>
-    <lastmod>2023-07-15T14:13:22.740Z</lastmod>
+    <lastmod>2023-08-08T18:52:37.482Z</lastmod>
+  </url>
+  <url>
+    <loc>https://dominicmagirr.github.io/blog/posts/normal_inverse_wishart/index.html</loc>
+    <lastmod>2023-08-08T18:52:38.094Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/old-blog-posts/index.html</loc>
-    <lastmod>2023-07-15T14:13:23.191Z</lastmod>
+    <lastmod>2023-08-08T18:52:38.444Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index.html</loc>
-    <lastmod>2023-07-15T14:13:24.098Z</lastmod>
+    <lastmod>2023-08-08T18:52:39.159Z</lastmod>
   </url>
 </urlset>
