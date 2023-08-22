@@ -28,3 +28,6 @@ format:
 
 editor: visual
 
+comments:
+  giscus:
+    repo: dominicmagirr/blog
