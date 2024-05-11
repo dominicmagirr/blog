@@ -25,5 +25,8 @@
   },
   "posts/normal_inverse_wishart/index.rmarkdown": {
     "index.html": "d7832c66"
+  },
+  "posts/causal_hr/causal_hr.Rmd": {
+    "causal_hr.html": "088efbeb"
   }
 }
