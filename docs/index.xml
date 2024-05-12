@@ -32,12 +32,12 @@
 <h1>Definition A</h1>
 <p>One clean and precise definition of a causal effect is provided by Hernan &amp; Robins <a href="https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/">Technical Point 1.1</a>…</p>
 <p><em>In general, a population causal effect can be defined as a contrast of any functional of the marginal distributions of counterfactual outcomes under different actions or treatment values.</em></p>
-<p>The hazard ratio, <img src="https://latex.codecogs.com/png.latex?h(t)">, satisfies this definition, for any choice of <img src="https://latex.codecogs.com/png.latex?t">. Therefore, if we follow this definition, then the hazard ratio is a causal effect. End of story. We can all move on.</p>
+<p>The hazard ratio, <img src="https://latex.codecogs.com/png.latex?hr(t)">, satisfies this definition, for any choice of <img src="https://latex.codecogs.com/png.latex?t">. Therefore, if we follow this definition, then the hazard ratio is a causal effect. End of story. We can all move on.</p>
 </section>
 <section id="criticism-of-hazard-ratios-in-loose-language" class="level1">
 <h1>Criticism of hazard ratios in loose language</h1>
 <p><a href="https://journals.lww.com/epidem/fulltext/2010/01000/The_Hazards_of_Hazard_Ratios.4.aspx?trk=public_post_comment-text">“The hazards of hazard ratios” (Hernan, 2010)</a> contains an example where the hazard ratio (hormone therapy vs control) after 5 years is less than 1 “even if hormone therapy has no truly preventive effect in any woman at any time.”</p>
-<p>Interestingly, though, the fact that a hazard ratio can ostensibly point “in favour” of an experimental treatment despite no true benefit is not the grounds given for claiming that a hazard ratio lacks a causal interpretation. For example, the so-called <a href="https://doi.org/10.1002/sim.8471">“total effect” in a competing risks setting</a> also has the property that it can be less than 1 (if it’s a ratio) despite no true benefit. Yet this is unequivocally a “causal effect” according to the authors.</p>
+<p>Interestingly, though, the fact that a hazard ratio can ostensibly point in favour of an experimental treatment despite no true benefit is not the grounds given for claiming that a hazard ratio lacks a causal interpretation. For example, the so-called <a href="https://doi.org/10.1002/sim.8471">“total effect” in a competing risks setting</a> also has the property that it can be less than 1 (if it’s a ratio) despite no true benefit. Yet this is unequivocally a causal effect according to the authors.</p>
 <p>Rather, the grounds given for claiming the hazard ratio is not a causal effect is always given in loose language, e.g., it somehow does not compare equal groups, or has a so-called <a href="https://jamanetwork.com/journals/jama/article-abstract/2763185?casa_token=tAomZd95qsAAAAAA:dL_8gzVHt2qDRq7L7X-D2JI7RAuqxBkoWFCKtXvUJFYZ5sTdN-inS6o8KxDHdUcrUw2PZNQT6A">“in-built selection bias”</a>. This is ambiguous. I would say that a hazard ratio at 5 years is a consequence of everything that happens to everyone in the first 5 years. It is not merely a comparison of the set of patients alive at 5 years, as if the patients who have died had never existed.</p>
 </section>
 <section id="definition-b" class="level1">
@@ -50,7 +50,7 @@
 <section id="which-definition-is-better" class="level1">
 <h1>Which definition is better?</h1>
 <p>Given that both the hazard ratio and total effect have the same property that they can be less than 1 despite no true benefit, I prefer Definition A to Definition B.</p>
-<p>Both the hazard ratio and the total effect require deep thought to understand. Neither has a straightforward interpretation. To use definition B, and therefore make the distinction that the total effect is “causal” and the hazard ratio in “not causal”, is a pure technicality in my eyes.</p>
+<p>Both the hazard ratio and the total effect require deep thought to understand. Neither has a straightforward interpretation. To use definition B, and therefore make the distinction that the total effect is causal and the hazard ratio in not causal, is a pure technicality in my eyes.</p>
 
 
 </section>
