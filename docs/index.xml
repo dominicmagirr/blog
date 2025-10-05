@@ -21,7 +21,7 @@
 
 
 <p>Consider a 2-arm RCT (1:1 allocation) with a continuous outcome, total sample size 200 and seven baseline covariates. Consider a superpopulation set-up. The estimand is the (super) population average treatment effect <img src="https://latex.codecogs.com/png.latex?%5Ctheta%20=%20E(Y(1)%20-%20Y(0))">. Estimation is performed via a linear regression working model</p>
-<p><img src="https://latex.codecogs.com/png.latex?E(Y_i%20%5Cmid%20A_i,%20X_%7B1,i%7D,ldots,X_%7B7,i%7D)%20=%20%5Cbeta_0%20+%20%5Ctheta%20A_i%20+%20%5Cbeta_1%20X_%7B1,i%7D%20+%20%5Ccdots%20+%20%5Cbeta_7%7BX_%7B7,i%7D%7D"></p>
+<p><img src="https://latex.codecogs.com/png.latex?E(Y_i%20%5Cmid%20A_i,%20X_%7B1,i%7D,%5Cldots,X_%7B7,i%7D)%20=%20%5Cbeta_0%20+%20%5Ctheta%20A_i%20+%20%5Cbeta_1%20X_%7B1,i%7D%20+%20%5Ccdots%20+%20%5Cbeta_7%7BX_%7B7,i%7D%7D"></p>
 <p>so that <img src="https://latex.codecogs.com/png.latex?%5Chat%7B%5Ctheta%7D"> is the usual least squares estimator of <img src="https://latex.codecogs.com/png.latex?%5Ctheta">. For example,</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">set.seed</span>(<span class="dv" style="color: #AD0000;">620</span>)</span>
@@ -111,7 +111,7 @@ font-style: italic;">## RobinCar2 Var</span></span>
 <section id="so-what" class="level2">
 <h2 class="anchored" data-anchor-id="so-what">So what?</h2>
 <p>The methods included in {RobinCar2} are powerful and useful. I’m an advocate for using more covariate adjustment in the primary analysis of RCTs. I’m especially excited about the methods for <a href="https://academic.oup.com/biomet/article-pdf/111/2/691/57467434/asad045.pdf">covariate adjustment involving time-to-event outcomes</a>. They need to be used in the appropriate settings, however.</p>
-<p>It’s easy to say that’s when $p$ is not too large, and $n$ is not too small. I chose this example to be somewhere on the boundary of what I would instinctively consider reasonable but can still lead to a dramatic difference between the model-based and influence function approaches.</p>
+<p>It’s easy to say that’s when <img src="https://latex.codecogs.com/png.latex?p"> is not too large, and <img src="https://latex.codecogs.com/png.latex?n"> is not too small. I chose this example to be somewhere on the boundary of what I would instinctively consider reasonable but can still lead to a dramatic difference between the model-based and influence function approaches.</p>
 <p>I’m slowly building an understanding of what’s driving this difference. It’s a combination of several factors: conditional vs unconditional inference, variance inflation factors <a href="https://arxiv.org/pdf/2408.06760">(see Senn et al.,2024)</a>, and a degrees of freedom correction. In large(ish) sample sizes each of these factors might not seem to make a huge difference in isolation, but together it could add up to a big difference.</p>
 
 

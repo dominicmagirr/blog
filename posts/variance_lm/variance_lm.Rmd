@@ -7,7 +7,7 @@ categories: [RCT]
 
 Consider a 2-arm RCT (1:1 allocation) with a continuous outcome, total sample size 200 and seven baseline covariates. Consider a superpopulation set-up. The estimand is the (super) population average treatment effect $\theta = E(Y(1) - Y(0))$. Estimation is performed via a linear regression working model
 
-$$E(Y_i \mid A_i, X_{1,i},ldots,X_{7,i}) = \beta_0 + \theta A_i + \beta_1 X_{1,i} + \cdots + \beta_7{X_{7,i}}$$
+$$E(Y_i \mid A_i, X_{1,i},\ldots,X_{7,i}) = \beta_0 + \theta A_i + \beta_1 X_{1,i} + \cdots + \beta_7{X_{7,i}}$$
 
 so that $\hat{\theta}$ is the usual least squares estimator of $\theta$. For example,
 
@@ -76,6 +76,6 @@ Same model, same data, 15\% smaller estimated variance.
 
 The methods included in {RobinCar2} are powerful and useful. I'm an advocate for using more covariate adjustment in the primary analysis of RCTs. I'm especially excited about the methods for [covariate adjustment involving time-to-event outcomes](<https://academic.oup.com/biomet/article-pdf/111/2/691/57467434/asad045.pdf>). They need to be used in the appropriate settings, however.
 
-It's easy to say that's when \$p\$ is not too large, and \$n\$ is not too small. I chose this example to be somewhere on the boundary of what I would instinctively consider reasonable but can still lead to a dramatic difference between the model-based and influence function approaches.
+It's easy to say that's when $p$ is not too large, and $n$ is not too small. I chose this example to be somewhere on the boundary of what I would instinctively consider reasonable but can still lead to a dramatic difference between the model-based and influence function approaches.
 
 I'm slowly building an understanding of what's driving this difference. It's a combination of several factors: conditional vs unconditional inference, variance inflation factors [(see Senn et al.,2024)](<https://arxiv.org/pdf/2408.06760>), and a degrees of freedom correction. In large(ish) sample sizes each of these factors might not seem to make a huge difference in isolation, but together it could add up to a big difference.
