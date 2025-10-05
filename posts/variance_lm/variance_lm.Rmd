@@ -1,0 +1,81 @@
+---
+title: "Variance estimation: ANCOVA RCT analysis"
+author: "Dominic Magirr"
+date: "2025-10-05"
+categories: [RCT]
+---
+
+Consider a 2-arm RCT (1:1 allocation) with a continuous outcome, total sample size 200 and seven baseline covariates. Consider a superpopulation set-up. The estimand is the (super) population average treatment effect $\theta = E(Y(1) - Y(0))$. Estimation is performed via a linear regression working model
+
+$$E(Y_i \mid A_i, X_{1,i},ldots,X_{7,i}) = \beta_0 + \theta A_i + \beta_1 X_{1,i} + \cdots + \beta_7{X_{7,i}}$$
+
+so that $\hat{\theta}$ is the usual least squares estimator of $\theta$. For example,
+
+```{r}
+set.seed(620)
+
+n <- 200
+p <- 7
+
+## simulate covariates 
+X_star <- matrix(rnorm(n * p), nrow = n, ncol = p)
+
+## equal allocation
+a <- rep(c(0, 1), each = n / 2)
+
+## design matrix
+X <- cbind(1, a, X_star)
+
+## true parameter values
+beta <- c(0, 0.2, rep(0.1, p))
+
+## simulate outcome
+y <- rnorm(n, X%*%beta)
+
+## data set
+dat <- as.data.frame(cbind(y, a, X_star))
+dat$a <- as.factor(dat$a)
+
+## fit model
+fit <- lm(y ~ ., data = dat)
+
+## point estimate theta_hat
+fit$coef[2]
+```
+
+How should we estimate the variance of $\hat{\theta}$? One option is the usual ANCOVA approach,
+
+```{r}
+## Model based Var
+var_model <- vcov(fit)["a1", "a1"]
+var_model
+```
+
+Alternatively, we could use an influence function approach, as for example described in [Ye et al. (2023) "Toward Better Practice of Covariate Adjustment in Analyzing Randomized Clinical Trials"](<https://doi.org/10.1080/01621459.2022.2049278>), which has the endorsement of being included in [recent FDA guidance](<https://www.fda.gov/regulatory-information/search-fda-guidance-documents/adjusting-covariates-randomized-clinical-trials-drugs-and-biological-products>), and is implemented in [{RobinCar2}](<https://openpharma.github.io/RobinCar2/main/>),
+
+```{r}
+library(RobinCar2)
+## RobinCar2 Var
+robin_fit <- robin_lm(as.formula(paste0("y ~ ", paste0(names(dat)[-1], collapse = "+"))),
+                      data = dat,
+                      treatment = a ~ sp(1))
+
+var_robin <- robin_fit$contrast$variance[1,1]
+var_robin
+```
+
+This estimated variance is 15\% smaller than the usual ANCOVA variance estimate
+
+```{r}
+var_robin / var_model
+```
+
+Same model, same data, 15\% smaller estimated variance.
+
+## So what?
+
+The methods included in {RobinCar2} are powerful and useful. I'm an advocate for using more covariate adjustment in the primary analysis of RCTs. I'm especially excited about the methods for [covariate adjustment involving time-to-event outcomes](<https://academic.oup.com/biomet/article-pdf/111/2/691/57467434/asad045.pdf>). They need to be used in the appropriate settings, however.
+
+It's easy to say that's when \$p\$ is not too large, and \$n\$ is not too small. I chose this example to be somewhere on the boundary of what I would instinctively consider reasonable but can still lead to a dramatic difference between the model-based and influence function approaches.
+
+I'm slowly building an understanding of what's driving this difference. It's a combination of several factors: conditional vs unconditional inference, variance inflation factors [(see Senn et al.,2024)](<https://arxiv.org/pdf/2408.06760>), and a degrees of freedom correction. In large(ish) sample sizes each of these factors might not seem to make a huge difference in isolation, but together it could add up to a big difference.

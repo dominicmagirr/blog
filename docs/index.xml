@@ -10,7 +10,118 @@
 <atom:link href="https://dominicmagirr.github.io/blog/index.xml" rel="self" type="application/rss+xml"/>
 <description>A blog about statistical methodology in clinical trials</description>
 <generator>quarto-1.2.475</generator>
-<lastBuildDate>Fri, 10 May 2024 22:00:00 GMT</lastBuildDate>
+<lastBuildDate>Sat, 04 Oct 2025 22:00:00 GMT</lastBuildDate>
+<item>
+  <title>Variance estimation: ANCOVA RCT analysis</title>
+  <dc:creator>Dominic Magirr</dc:creator>
+  <link>https://dominicmagirr.github.io/blog/posts/variance_lm/variance_lm.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>Consider a 2-arm RCT (1:1 allocation) with a continuous outcome, total sample size 200 and seven baseline covariates. Consider a superpopulation set-up. The estimand is the (super) population average treatment effect <img src="https://latex.codecogs.com/png.latex?%5Ctheta%20=%20E(Y(1)%20-%20Y(0))">. Estimation is performed via a linear regression working model</p>
+<p><img src="https://latex.codecogs.com/png.latex?E(Y_i%20%5Cmid%20A_i,%20X_%7B1,i%7D,ldots,X_%7B7,i%7D)%20=%20%5Cbeta_0%20+%20%5Ctheta%20A_i%20+%20%5Cbeta_1%20X_%7B1,i%7D%20+%20%5Ccdots%20+%20%5Cbeta_7%7BX_%7B7,i%7D%7D"></p>
+<p>so that <img src="https://latex.codecogs.com/png.latex?%5Chat%7B%5Ctheta%7D"> is the usual least squares estimator of <img src="https://latex.codecogs.com/png.latex?%5Ctheta">. For example,</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">set.seed</span>(<span class="dv" style="color: #AD0000;">620</span>)</span>
+<span id="cb1-2"></span>
+<span id="cb1-3">n <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">200</span></span>
+<span id="cb1-4">p <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">7</span></span>
+<span id="cb1-5"></span>
+<span id="cb1-6"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate covariates&nbsp;</span></span>
+<span id="cb1-7">X_star <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">matrix</span>(<span class="fu" style="color: #4758AB;">rnorm</span>(n <span class="sc" style="color: #5E5E5E;">*</span> p), <span class="at" style="color: #657422;">nrow =</span> n, <span class="at" style="color: #657422;">ncol =</span> p)</span>
+<span id="cb1-8"></span>
+<span id="cb1-9"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## equal allocation</span></span>
+<span id="cb1-10">a <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>, <span class="dv" style="color: #AD0000;">1</span>), <span class="at" style="color: #657422;">each =</span> n <span class="sc" style="color: #5E5E5E;">/</span> <span class="dv" style="color: #AD0000;">2</span>)</span>
+<span id="cb1-11"></span>
+<span id="cb1-12"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## design matrix</span></span>
+<span id="cb1-13">X <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cbind</span>(<span class="dv" style="color: #AD0000;">1</span>, a, X_star)</span>
+<span id="cb1-14"></span>
+<span id="cb1-15"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## true parameter values</span></span>
+<span id="cb1-16">beta <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>, <span class="fl" style="color: #AD0000;">0.2</span>, <span class="fu" style="color: #4758AB;">rep</span>(<span class="fl" style="color: #AD0000;">0.1</span>, p))</span>
+<span id="cb1-17"></span>
+<span id="cb1-18"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate outcome</span></span>
+<span id="cb1-19">y <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rnorm</span>(n, X<span class="sc" style="color: #5E5E5E;">%*%</span>beta)</span>
+<span id="cb1-20"></span>
+<span id="cb1-21"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## data set</span></span>
+<span id="cb1-22">dat <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">as.data.frame</span>(<span class="fu" style="color: #4758AB;">cbind</span>(y, a, X_star))</span>
+<span id="cb1-23">dat<span class="sc" style="color: #5E5E5E;">$</span>a <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">as.factor</span>(dat<span class="sc" style="color: #5E5E5E;">$</span>a)</span>
+<span id="cb1-24"></span>
+<span id="cb1-25"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## fit model</span></span>
+<span id="cb1-26">fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">lm</span>(y <span class="sc" style="color: #5E5E5E;">~</span> ., <span class="at" style="color: #657422;">data =</span> dat)</span>
+<span id="cb1-27"></span>
+<span id="cb1-28"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## point estimate theta_hat</span></span>
+<span id="cb1-29">fit<span class="sc" style="color: #5E5E5E;">$</span>coef[<span class="dv" style="color: #AD0000;">2</span>]</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       a1 
+0.1901536 </code></pre>
+</div>
+</div>
+<p>How should we estimate the variance of <img src="https://latex.codecogs.com/png.latex?%5Chat%7B%5Ctheta%7D">? One option is the usual ANCOVA approach,</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## Model based Var</span></span>
+<span id="cb3-2">var_model <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">vcov</span>(fit)[<span class="st" style="color: #20794D;">"a1"</span>, <span class="st" style="color: #20794D;">"a1"</span>]</span>
+<span id="cb3-3">var_model</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02338236</code></pre>
+</div>
+</div>
+<p>Alternatively, we could use an influence function approach, as for example described in <a href="https://doi.org/10.1080/01621459.2022.2049278">Ye et al.&nbsp;(2023) “Toward Better Practice of Covariate Adjustment in Analyzing Randomized Clinical Trials”</a>, which has the endorsement of being included in <a href="https://www.fda.gov/regulatory-information/search-fda-guidance-documents/adjusting-covariates-randomized-clinical-trials-drugs-and-biological-products">recent FDA guidance</a>, and is implemented in <a href="https://openpharma.github.io/RobinCar2/main/">{RobinCar2}</a>,</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><span class="fu" style="color: #4758AB;">library</span>(RobinCar2)</span></code></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'RobinCar2'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following object is masked from 'package:base':
+
+    table</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## RobinCar2 Var</span></span>
+<span id="cb8-2">robin_fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">robin_lm</span>(<span class="fu" style="color: #4758AB;">as.formula</span>(<span class="fu" style="color: #4758AB;">paste0</span>(<span class="st" style="color: #20794D;">"y ~ "</span>, <span class="fu" style="color: #4758AB;">paste0</span>(<span class="fu" style="color: #4758AB;">names</span>(dat)[<span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">1</span>], <span class="at" style="color: #657422;">collapse =</span> <span class="st" style="color: #20794D;">"+"</span>))),</span>
+<span id="cb8-3">                      <span class="at" style="color: #657422;">data =</span> dat,</span>
+<span id="cb8-4">                      <span class="at" style="color: #657422;">treatment =</span> a <span class="sc" style="color: #5E5E5E;">~</span> <span class="fu" style="color: #4758AB;">sp</span>(<span class="dv" style="color: #AD0000;">1</span>))</span>
+<span id="cb8-5"></span>
+<span id="cb8-6">var_robin <span class="ot" style="color: #003B4F;">&lt;-</span> robin_fit<span class="sc" style="color: #5E5E5E;">$</span>contrast<span class="sc" style="color: #5E5E5E;">$</span>variance[<span class="dv" style="color: #AD0000;">1</span>,<span class="dv" style="color: #AD0000;">1</span>]</span>
+<span id="cb8-7">var_robin</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.01998412</code></pre>
+</div>
+</div>
+<p>This estimated variance is 15% smaller than the usual ANCOVA variance estimate</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1">var_robin <span class="sc" style="color: #5E5E5E;">/</span> var_model</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.8546666</code></pre>
+</div>
+</div>
+<p>Same model, same data, 15% smaller estimated variance.</p>
+<section id="so-what" class="level2">
+<h2 class="anchored" data-anchor-id="so-what">So what?</h2>
+<p>The methods included in {RobinCar2} are powerful and useful. I’m an advocate for using more covariate adjustment in the primary analysis of RCTs. I’m especially excited about the methods for <a href="https://academic.oup.com/biomet/article-pdf/111/2/691/57467434/asad045.pdf">covariate adjustment involving time-to-event outcomes</a>. They need to be used in the appropriate settings, however.</p>
+<p>It’s easy to say that’s when $p$ is not too large, and $n$ is not too small. I chose this example to be somewhere on the boundary of what I would instinctively consider reasonable but can still lead to a dramatic difference between the model-based and influence function approaches.</p>
+<p>I’m slowly building an understanding of what’s driving this difference. It’s a combination of several factors: conditional vs unconditional inference, variance inflation factors <a href="https://arxiv.org/pdf/2408.06760">(see Senn et al.,2024)</a>, and a degrees of freedom correction. In large(ish) sample sizes each of these factors might not seem to make a huge difference in isolation, but together it could add up to a big difference.</p>
+
+
+</section>
+
+ ]]></description>
+  <category>RCT</category>
+  <guid>https://dominicmagirr.github.io/blog/posts/variance_lm/variance_lm.html</guid>
+  <pubDate>Sat, 04 Oct 2025 22:00:00 GMT</pubDate>
+</item>
 <item>
   <title>Causal interpretation of the hazard ratio in RCTs</title>
   <dc:creator>Dominic Magirr</dc:creator>

@@ -2,6 +2,7 @@
   {
     "listing": "/index.html",
     "items": [
+      "/posts/variance_lm/variance_lm.html",
       "/posts/causal_hr/causal_hr.html",
       "/posts/normal_inverse_wishart/index.html",
       "/posts/conditional_inference/index.html",
