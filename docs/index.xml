@@ -10,7 +10,219 @@
 <atom:link href="https://dominicmagirr.github.io/blog/index.xml" rel="self" type="application/rss+xml"/>
 <description>A blog about statistical methodology in clinical trials</description>
 <generator>quarto-1.2.475</generator>
-<lastBuildDate>Sat, 04 Oct 2025 22:00:00 GMT</lastBuildDate>
+<lastBuildDate>Wed, 08 Oct 2025 22:00:00 GMT</lastBuildDate>
+<item>
+  <title>Variance estimation: ANCOVA RCT analysis (part 2)</title>
+  <dc:creator>Dominic Magirr</dc:creator>
+  <link>https://dominicmagirr.github.io/blog/posts/variance_lm_2/variance_lm_2.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>In my <a href="https://dominicmagirr.github.io/blog/posts/variance_lm/variance_lm.html">previous post</a> on estimating the variance of treatment effect estimators based on linear regression models in RCTs, I perhaps suggested that the method described in <a href="https://doi.org/10.1080/01621459.2022.2049278">Ye et al.&nbsp;(2023)</a> and implemented in <a href="https://marlenabannick.com/RobinCar/">{RobinCar}</a> and <a href="https://openpharma.github.io/RobinCar2/main/">{RobinCar2}</a> was (for one particular scenario) underestimating the variance by about 15%. I should clarify that (in this scenario) it only underestimates the <em>conditional</em> variance (conditional on the particular design matrix that I chose) by about 15%. It underestimates the <em>unconditional</em> variance (where we consider sampling a new design matrix for each hypothetical repetition of the experiment) by about 7%, as I’ll show below.</p>
+<p>My previous post contained some R code to simulate one trial and then analyze it in using a linear model with a couple of different methods of variance estimation. Here, I have simply copied that code into a function. I have added a couple of extra features: I calculate the variance with an additional two methods (<a href="https://doi.org/10.1080/00031305.2000.10474549">sandwich estimators HC0 and HC1</a>), and I also calculate the variance inflation factor <a href="https://arxiv.org/pdf/2408.06760">(see Senn et al.,2024)</a></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">library</span>(RobinCar2)</span>
+<span id="cb1-2"></span>
+<span id="cb1-3"><span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate one trial </span></span>
+<span id="cb1-4">sim_one_trial <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(n, beta, <span class="at" style="color: #657422;">x_seed =</span> <span class="cn" style="color: #8f5902;">NULL</span>){</span>
+<span id="cb1-5">  </span>
+<span id="cb1-6">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## equal allocation</span></span>
+<span id="cb1-7">  <span class="cf" style="color: #003B4F;">if</span> (n <span class="sc" style="color: #5E5E5E;">%%</span> <span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">==</span> <span class="dv" style="color: #AD0000;">1</span>) <span class="fu" style="color: #4758AB;">stop</span>(<span class="st" style="color: #20794D;">"n must be even"</span>)</span>
+<span id="cb1-8">  a <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>, <span class="dv" style="color: #AD0000;">1</span>), <span class="at" style="color: #657422;">each =</span> n <span class="sc" style="color: #5E5E5E;">/</span> <span class="dv" style="color: #AD0000;">2</span>)</span>
+<span id="cb1-9">  </span>
+<span id="cb1-10">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate covariates</span></span>
+<span id="cb1-11">  p <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">length</span>(beta) <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">2</span></span>
+<span id="cb1-12">  <span class="fu" style="color: #4758AB;">set.seed</span>(x_seed) <span class="do" style="color: #5E5E5E;
+font-style: italic;">## choose a specific seed to fix X</span></span>
+<span id="cb1-13">  X_star <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">matrix</span>(<span class="fu" style="color: #4758AB;">rnorm</span>(n <span class="sc" style="color: #5E5E5E;">*</span> p), <span class="at" style="color: #657422;">nrow =</span> n, <span class="at" style="color: #657422;">ncol =</span> p)</span>
+<span id="cb1-14">  </span>
+<span id="cb1-15">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## design matrix</span></span>
+<span id="cb1-16">  X <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cbind</span>(<span class="dv" style="color: #AD0000;">1</span>, a, X_star)</span>
+<span id="cb1-17">  </span>
+<span id="cb1-18">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## store variance inflation factor</span></span>
+<span id="cb1-19">  vif <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">solve</span>(<span class="fu" style="color: #4758AB;">t</span>(X)<span class="sc" style="color: #5E5E5E;">%*%</span>X)[<span class="dv" style="color: #AD0000;">2</span>,<span class="dv" style="color: #AD0000;">2</span>] <span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">4</span><span class="sc" style="color: #5E5E5E;">/</span>n)</span>
+<span id="cb1-20">  </span>
+<span id="cb1-21">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## simulate outcome</span></span>
+<span id="cb1-22">  <span class="fu" style="color: #4758AB;">set.seed</span>(<span class="cn" style="color: #8f5902;">NULL</span>) <span class="do" style="color: #5E5E5E;
+font-style: italic;">## reset random number seed</span></span>
+<span id="cb1-23">  y <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rnorm</span>(n, X<span class="sc" style="color: #5E5E5E;">%*%</span>beta)</span>
+<span id="cb1-24">  </span>
+<span id="cb1-25">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## data set</span></span>
+<span id="cb1-26">  dat <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">as.data.frame</span>(<span class="fu" style="color: #4758AB;">cbind</span>(y, X[,<span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">1</span>]))</span>
+<span id="cb1-27">  dat<span class="sc" style="color: #5E5E5E;">$</span>a <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">as.factor</span>(dat<span class="sc" style="color: #5E5E5E;">$</span>a)</span>
+<span id="cb1-28">  </span>
+<span id="cb1-29">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## fit model</span></span>
+<span id="cb1-30">  fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">lm</span>(y <span class="sc" style="color: #5E5E5E;">~</span> ., <span class="at" style="color: #657422;">data =</span> dat)</span>
+<span id="cb1-31">  </span>
+<span id="cb1-32">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## point estimate</span></span>
+<span id="cb1-33">  point_estimate <span class="ot" style="color: #003B4F;">&lt;-</span> fit<span class="sc" style="color: #5E5E5E;">$</span>coef[<span class="dv" style="color: #AD0000;">2</span>]</span>
+<span id="cb1-34">  </span>
+<span id="cb1-35">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## Model based Var</span></span>
+<span id="cb1-36">  var_model <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">vcov</span>(fit)[<span class="st" style="color: #20794D;">"a1"</span>, <span class="st" style="color: #20794D;">"a1"</span>] </span>
+<span id="cb1-37"></span>
+<span id="cb1-38">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## HC0</span></span>
+<span id="cb1-39">  var_HC0 <span class="ot" style="color: #003B4F;">&lt;-</span> sandwich<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">vcovHC</span>(fit, <span class="at" style="color: #657422;">type =</span> <span class="st" style="color: #20794D;">"HC0"</span>)[<span class="st" style="color: #20794D;">"a1"</span>, <span class="st" style="color: #20794D;">"a1"</span>]</span>
+<span id="cb1-40">  </span>
+<span id="cb1-41">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## HC1</span></span>
+<span id="cb1-42">  var_HC1 <span class="ot" style="color: #003B4F;">&lt;-</span> sandwich<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">vcovHC</span>(fit, <span class="at" style="color: #657422;">type =</span> <span class="st" style="color: #20794D;">"HC1"</span>)[<span class="st" style="color: #20794D;">"a1"</span>, <span class="st" style="color: #20794D;">"a1"</span>]</span>
+<span id="cb1-43">  </span>
+<span id="cb1-44">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## RobinCar2 Var</span></span>
+<span id="cb1-45">  robin_fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">robin_lm</span>(<span class="fu" style="color: #4758AB;">as.formula</span>(<span class="fu" style="color: #4758AB;">paste0</span>(<span class="st" style="color: #20794D;">"y ~ "</span>, <span class="fu" style="color: #4758AB;">paste0</span>(<span class="fu" style="color: #4758AB;">names</span>(dat)[<span class="sc" style="color: #5E5E5E;">-</span><span class="dv" style="color: #AD0000;">1</span>], <span class="at" style="color: #657422;">collapse =</span> <span class="st" style="color: #20794D;">"+"</span>))),</span>
+<span id="cb1-46">                        <span class="at" style="color: #657422;">data =</span> dat,</span>
+<span id="cb1-47">                        <span class="at" style="color: #657422;">treatment =</span> a <span class="sc" style="color: #5E5E5E;">~</span> <span class="fu" style="color: #4758AB;">sp</span>(<span class="dv" style="color: #AD0000;">1</span>))</span>
+<span id="cb1-48">  </span>
+<span id="cb1-49">  var_robin <span class="ot" style="color: #003B4F;">&lt;-</span> robin_fit<span class="sc" style="color: #5E5E5E;">$</span>contrast<span class="sc" style="color: #5E5E5E;">$</span>variance[<span class="dv" style="color: #AD0000;">1</span>,<span class="dv" style="color: #AD0000;">1</span>]</span>
+<span id="cb1-50">  </span>
+<span id="cb1-51">  <span class="fu" style="color: #4758AB;">return</span>(<span class="fu" style="color: #4758AB;">c</span>(<span class="at" style="color: #657422;">point_estimate =</span> point_estimate,</span>
+<span id="cb1-52">           <span class="at" style="color: #657422;">vif =</span> vif,</span>
+<span id="cb1-53">           <span class="at" style="color: #657422;">var_model =</span> var_model,</span>
+<span id="cb1-54">           <span class="at" style="color: #657422;">var_HC0 =</span> var_HC0,</span>
+<span id="cb1-55">           <span class="at" style="color: #657422;">var_HC1 =</span> var_HC1,</span>
+<span id="cb1-56">           <span class="at" style="color: #657422;">var_robin =</span> var_robin))</span>
+<span id="cb1-57">  </span>
+<span id="cb1-58">}</span></code></pre></div>
+</div>
+<p>Now I’ll repeat what I did in the previous post 10,000 times and store the results.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><span class="do" style="color: #5E5E5E;
+font-style: italic;">### simulate 10000 trials</span></span>
+<span id="cb2-2">res <span class="ot" style="color: #003B4F;">&lt;-</span> purrr<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">map_df</span>(<span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">200</span>, <span class="fl" style="color: #AD0000;">1e4</span>), sim_one_trial, <span class="at" style="color: #657422;">beta =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>, <span class="fl" style="color: #AD0000;">0.2</span>, <span class="fu" style="color: #4758AB;">rep</span>(<span class="fl" style="color: #AD0000;">0.1</span>, <span class="dv" style="color: #AD0000;">7</span>)))</span></code></pre></div>
+</div>
+<p>In this case I have used a new design matrix in each replication of the experiment. If I wanted to know the true <em>unconditional</em> variance of the point estimator, one thing I could do is look at the sample variance of the 10,000 point estimates,</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><span class="fu" style="color: #4758AB;">var</span>(res[,<span class="dv" style="color: #AD0000;">1</span>])</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                  point_estimate.a1
+point_estimate.a1        0.02105605</code></pre>
+</div>
+</div>
+<p>But in this scenario, because I know that the true residual standard deviation is <img src="https://latex.codecogs.com/png.latex?1"> (and therefore don’t need to estimate this part), a more accurate estimate of the true <em>unconditional</em> variance of the point estimator is</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1">est_true_var <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mean</span>(res<span class="sc" style="color: #5E5E5E;">$</span>vif) <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">4</span> <span class="sc" style="color: #5E5E5E;">/</span> <span class="dv" style="color: #AD0000;">200</span></span>
+<span id="cb5-2">est_true_var</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02073315</code></pre>
+</div>
+</div>
+<p>We can now see whether the different variance estimators are correct on average across the 10,000 experiments</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1">av_res <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">colMeans</span>(res)</span>
+<span id="cb7-2">av_res[<span class="dv" style="color: #AD0000;">3</span><span class="sc" style="color: #5E5E5E;">:</span><span class="dv" style="color: #AD0000;">6</span>]</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> var_model    var_HC0    var_HC1  var_robin 
+0.02074655 0.01979663 0.02072946 0.01930495 </code></pre>
+</div>
+</div>
+<p>The method from {RobinCar2} is (in this scenario) underestimating the <em>unconditional</em> variance by about 7%</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><span class="fu" style="color: #4758AB;">unname</span>(av_res[<span class="st" style="color: #20794D;">"var_robin"</span>] <span class="sc" style="color: #5E5E5E;">/</span> est_true_var)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.9311152</code></pre>
+</div>
+</div>
+<p>Looking across the different estimators, the reason HC0 underestimates the “true” variance is that it doesn’t pay a degrees of freedom penalty of <img src="https://latex.codecogs.com/png.latex?n%20/%20(n%20-%209)"> (there are 9 coefficients in total in this linear model). If we add this penalty we get</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><span class="fu" style="color: #4758AB;">unname</span>(av_res[<span class="st" style="color: #20794D;">"var_HC0"</span>] <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">9</span>) )</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02072946</code></pre>
+</div>
+</div>
+<p>which is exactly what HC1 does:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1">av_res[<span class="st" style="color: #20794D;">"var_HC1"</span>] </span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   var_HC1 
+0.02072946 </code></pre>
+</div>
+</div>
+<p>The method in {RobinCar2} also doesn’t fully adjust for the degrees of freedom, but applying a correction is still not sufficient to match the “true” variance</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><span class="fu" style="color: #4758AB;">unname</span>(av_res[<span class="st" style="color: #20794D;">"var_robin"</span>] <span class="sc" style="color: #5E5E5E;">*</span> (<span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">2</span>) <span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">9</span>) )</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02001246</code></pre>
+</div>
+</div>
+<p>that’s because it also ignores a term called the <em>variance inflation factor</em> <a href="https://arxiv.org/pdf/2408.06760">(see Senn et al.,2024)</a>. In this scenario, the expected value of the variance inflation factor (calculated using the simulations) is</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1">av_res[<span class="st" style="color: #20794D;">"vif"</span>]</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     vif 
+1.036657 </code></pre>
+</div>
+</div>
+<p>If we were to multiply the RobinCar variance by the expected value of the variance inflation factor, as well as the degrees of freedom penalty, then we would get back to approximately the correct unconditional variance</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><span class="fu" style="color: #4758AB;">unname</span>(av_res[<span class="st" style="color: #20794D;">"var_robin"</span>] <span class="sc" style="color: #5E5E5E;">*</span> (<span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">2</span>) <span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">9</span>) <span class="sc" style="color: #5E5E5E;">*</span> av_res[<span class="st" style="color: #20794D;">"vif"</span>])</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02074607</code></pre>
+</div>
+</div>
+<section id="conditional-inference" class="level2">
+<h2 class="anchored" data-anchor-id="conditional-inference">Conditional inference</h2>
+<p>In my previous post, I chose a particular design matrix by fixing the seed to be <code>620</code> before I simulated the covariates. Now let’s simulate the trial 10,000 times using that same design matrix…</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1">res_620 <span class="ot" style="color: #003B4F;">&lt;-</span> purrr<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">map_df</span>(<span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">200</span>, <span class="fl" style="color: #AD0000;">1e4</span>), sim_one_trial, <span class="at" style="color: #657422;">beta =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">0</span>, <span class="fl" style="color: #AD0000;">0.2</span>, <span class="fu" style="color: #4758AB;">rep</span>(<span class="fl" style="color: #AD0000;">0.1</span>, <span class="dv" style="color: #AD0000;">7</span>)), <span class="at" style="color: #657422;">x_seed =</span> <span class="dv" style="color: #AD0000;">620</span>)</span></code></pre></div>
+</div>
+<p>Again we can look at the ‘true’ conditional variance of the point estimator (where we condition on this particular design matrix)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1">est_true_cond_var <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mean</span>(res_620<span class="sc" style="color: #5E5E5E;">$</span>vif) <span class="sc" style="color: #5E5E5E;">*</span> <span class="dv" style="color: #AD0000;">4</span> <span class="sc" style="color: #5E5E5E;">/</span> <span class="dv" style="color: #AD0000;">200</span></span>
+<span id="cb22-2">est_true_cond_var</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02257612</code></pre>
+</div>
+</div>
+<p>and see how well the variance estimators do on average</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1">av_res_620 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">colMeans</span>(res_620)</span>
+<span id="cb24-2">av_res_620[<span class="dv" style="color: #AD0000;">3</span><span class="sc" style="color: #5E5E5E;">:</span><span class="dv" style="color: #AD0000;">6</span>]</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> var_model    var_HC0    var_HC1  var_robin 
+0.02252817 0.02146240 0.02247372 0.01925754 </code></pre>
+</div>
+</div>
+<p>Here, we see that the method in RobinCar is underestimating the <em>conditional</em> variance by about 15% as I suggested in my previous post. The reason for the 15% (versus the 7% unconditionally) is that I chose a particularly unbalanced design matrix where the variance inflation factor is about 12%.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1">av_res_620[<span class="st" style="color: #20794D;">"vif"</span>]</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     vif 
+1.128806 </code></pre>
+</div>
+</div>
+<p>If we correct for this variance inflation factor, as well as the degrees of freedom, we would arrive back to approximately the right place</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><span class="fu" style="color: #4758AB;">unname</span>(av_res_620[<span class="st" style="color: #20794D;">"var_robin"</span>] <span class="sc" style="color: #5E5E5E;">*</span> (<span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">2</span>) <span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">200</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">9</span>) <span class="sc" style="color: #5E5E5E;">*</span> av_res_620[<span class="st" style="color: #20794D;">"vif"</span>])</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.02253471</code></pre>
+</div>
+</div>
+</section>
+<section id="comments" class="level1">
+<h1>Comments</h1>
+<p>The RobinCar variance estimator targets the unconditional variance, so perhaps my previous post was a bit unfair and the 7% figure would have been a better starting point to discuss whether or not the difference to the model-based variance estimator is practically important. Then again, why take for granted that the unconditional variance is more important than the conditional variance?</p>
+
+
+</section>
+
+ ]]></description>
+  <category>RCT</category>
+  <guid>https://dominicmagirr.github.io/blog/posts/variance_lm_2/variance_lm_2.html</guid>
+  <pubDate>Wed, 08 Oct 2025 22:00:00 GMT</pubDate>
+</item>
 <item>
   <title>Variance estimation: ANCOVA RCT analysis</title>
   <dc:creator>Dominic Magirr</dc:creator>

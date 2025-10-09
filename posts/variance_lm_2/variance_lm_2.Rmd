@@ -1,0 +1,184 @@
+---
+title: "Variance estimation: ANCOVA RCT analysis (part 2)"
+author: "Dominic Magirr"
+date: "2025-10-09"
+categories: [RCT]
+---
+
+
+
+In my [previous post](https://dominicmagirr.github.io/blog/posts/variance_lm/variance_lm.html) on estimating the variance of treatment effect estimators based on linear regression models in RCTs, I perhaps suggested that the method described in [Ye et al. (2023)](https://doi.org/10.1080/01621459.2022.2049278) and implemented in [{RobinCar}](https://marlenabannick.com/RobinCar/) and [{RobinCar2}](https://openpharma.github.io/RobinCar2/main/) was (for one particular scenario) underestimating the variance by about 15\%. I should clarify that (in this scenario) it only underestimates the *conditional* variance (conditional on the particular design matrix that I chose) by about 15\%. It underestimates the *unconditional* variance (where we consider sampling a new design matrix for each hypothetical repetition of the experiment) by about 7\%, as I'll show below.
+
+
+My previous post contained some R code to simulate one trial and then analyze it in using a linear model with a couple of different methods of variance estimation. Here, I have simply copied that code into a function. I have added a couple of extra features: I calculate the variance with an additional two methods ([sandwich estimators HC0 and HC1](https://doi.org/10.1080/00031305.2000.10474549)), and I also calculate the variance inflation factor [(see Senn et al.,2024)](https://arxiv.org/pdf/2408.06760)
+
+```{r message=FALSE, warning=FALSE}
+library(RobinCar2)
+
+## simulate one trial 
+sim_one_trial <- function(n, beta, x_seed = NULL){
+  
+  ## equal allocation
+  if (n %% 2 == 1) stop("n must be even")
+  a <- rep(c(0, 1), each = n / 2)
+  
+  ## simulate covariates
+  p <- length(beta) - 2
+  set.seed(x_seed) ## choose a specific seed to fix X
+  X_star <- matrix(rnorm(n * p), nrow = n, ncol = p)
+  
+  ## design matrix
+  X <- cbind(1, a, X_star)
+  
+  ## store variance inflation factor
+  vif <- solve(t(X)%*%X)[2,2] / (4/n)
+  
+  ## simulate outcome
+  set.seed(NULL) ## reset random number seed
+  y <- rnorm(n, X%*%beta)
+  
+  ## data set
+  dat <- as.data.frame(cbind(y, X[,-1]))
+  dat$a <- as.factor(dat$a)
+  
+  ## fit model
+  fit <- lm(y ~ ., data = dat)
+  
+  ## point estimate
+  point_estimate <- fit$coef[2]
+  
+  ## Model based Var
+  var_model <- vcov(fit)["a1", "a1"] 
+
+  ## HC0
+  var_HC0 <- sandwich::vcovHC(fit, type = "HC0")["a1", "a1"]
+  
+  ## HC1
+  var_HC1 <- sandwich::vcovHC(fit, type = "HC1")["a1", "a1"]
+  
+  ## RobinCar2 Var
+  robin_fit <- robin_lm(as.formula(paste0("y ~ ", paste0(names(dat)[-1], collapse = "+"))),
+                        data = dat,
+                        treatment = a ~ sp(1))
+  
+  var_robin <- robin_fit$contrast$variance[1,1]
+  
+  return(c(point_estimate = point_estimate,
+           vif = vif,
+           var_model = var_model,
+           var_HC0 = var_HC0,
+           var_HC1 = var_HC1,
+           var_robin = var_robin))
+  
+}
+
+
+```
+
+
+Now I'll repeat what I did in the previous post 10,000 times and store the results. 
+
+```{r message=FALSE, warning=FALSE}
+### simulate 10000 trials
+res <- purrr::map_df(rep(200, 1e4), sim_one_trial, beta = c(0, 0.2, rep(0.1, 7)))
+```
+
+
+In this case I have used a new design matrix in each replication of the experiment. If I wanted to know the true *unconditional* variance of the point estimator, one thing I could do is look at the sample variance of the 10,000 point estimates,
+
+```{r}
+var(res[,1])
+```
+But in this scenario, because I know that the true residual standard deviation is $1$ (and therefore don't need to estimate this part), a more accurate estimate of the true *unconditional* variance of the point estimator is 
+
+```{r}
+est_true_var <- mean(res$vif) * 4 / 200
+est_true_var
+```
+
+
+We can now see whether the different variance estimators are correct on average across the 10,000 experiments
+
+```{r}
+av_res <- colMeans(res)
+av_res[3:6]
+```
+
+The method from {RobinCar2} is (in this scenario) underestimating the *unconditional* variance by about 7\%
+
+```{r}
+unname(av_res["var_robin"] / est_true_var)
+```
+
+Looking across the different estimators, the reason HC0 underestimates the "true" variance is that it doesn't pay a degrees of freedom penalty of $n / (n - 9)$ (there are 9 coefficients in total in this linear model). If we add this penalty we get
+
+```{r}
+unname(av_res["var_HC0"] * 200 / (200 - 9) )
+```
+
+which is exactly what HC1 does:
+
+```{r}
+av_res["var_HC1"] 
+```
+
+The method in {RobinCar2} also doesn't fully adjust for the degrees of freedom, but applying a correction is still not sufficient to match the "true" variance 
+
+```{r}
+unname(av_res["var_robin"] * (200 - 2) / (200 - 9) )
+```
+
+that's because it also ignores a term called the *variance inflation factor* [(see Senn et al.,2024)](https://arxiv.org/pdf/2408.06760). In this scenario, the expected value of the variance inflation factor (calculated using the simulations) is
+
+```{r}
+av_res["vif"]
+```
+
+If we were to multiply the RobinCar variance by the expected value of the variance inflation factor, as well as the degrees of freedom penalty, then we would get back to approximately the correct unconditional variance
+
+```{r}
+unname(av_res["var_robin"] * (200 - 2) / (200 - 9) * av_res["vif"])
+```
+
+## Conditional inference
+
+In my previous post, I chose a particular design matrix by fixing the seed to be `620` before I simulated the covariates. Now let's simulate the trial 10,000 times using that same design matrix...
+
+```{r}
+res_620 <- purrr::map_df(rep(200, 1e4), sim_one_trial, beta = c(0, 0.2, rep(0.1, 7)), x_seed = 620)
+```
+
+Again we can look at the 'true' conditional variance of the point estimator (where we condition on this particular design matrix)
+
+```{r}
+est_true_cond_var <- mean(res_620$vif) * 4 / 200
+est_true_cond_var
+```
+
+and see how well the variance estimators do on average
+
+```{r}
+av_res_620 <- colMeans(res_620)
+av_res_620[3:6]
+```
+
+Here, we see that the method in RobinCar is underestimating the *conditional* variance by about 15\% as I suggested in my previous post. The reason for the 15\% (versus the 7\% unconditionally) is that I chose a particularly unbalanced design matrix where the variance inflation factor is about 12\%.
+
+```{r}
+av_res_620["vif"]
+```
+
+
+If we correct for this variance inflation factor, as well as the degrees of freedom, we would arrive back to approximately the right place
+
+```{r}
+unname(av_res_620["var_robin"] * (200 - 2) / (200 - 9) * av_res_620["vif"])
+```
+
+
+# Comments
+
+The RobinCar variance estimator targets the unconditional variance, so perhaps my previous post was a bit unfair and the 7\% figure would have been a better starting point to discuss whether or not the difference to the model-based variance estimator is practically important. Then again, why take for granted that the unconditional variance is more important than the conditional variance? 
+
+
+
