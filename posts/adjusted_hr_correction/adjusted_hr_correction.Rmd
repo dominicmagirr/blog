@@ -1,0 +1,202 @@
+---
+title: "Finite-sample correction for the covariate-adjusted log-rank test"
+author: "Dominic Magirr"
+date: "2026-04-26"
+categories: [RCT]
+---
+
+
+I just watched a [recording](https://carswg.github.io/journalclub/journalclub18.html) of an excellent presentation by Daniel Backenroth as part of the [ASA Covariate Adjustment Working Group](https://carswg.github.io/journalclub/journalclub18.html)'s journal club.
+
+Daniel's topic was *Practical considerations when using covariate-adjusted log-rank tests*. The covariate-adjusted log-rank test and its corresponding estimation procedure is a novel way to do covariate adjustment when estimating hazard ratios, developed by [Ting Ye and colleagues (2024)](https://doi.org/10.1093/biomet/asad045) and implemented in the [`RobinCar`](https://marlenabannick.com/RobinCar/) and [`RobinCar2`](https://openpharma.github.io/RobinCar2/main/index.html) packages.  
+
+One of the issues Daniel highlighted was a non-ignorable type 1 error inflation when the number of covariates increases beyond a (quite small) number.
+
+I could replicate this issue with my own small simulation study (I'll add the code with all the details at the end of this post). When I simulated a trial with sample size 500 and around 250 events (quite typical for oncology) I got an increasing type 1 error rate as I increased the number of covariates (k):
+
+| k  | T1E (Unadjusted) | T1E (Adjusted) |
+|----|------------------|---------------|
+| 3  | 0.0242           | 0.0254        |
+| 5  | 0.0255          | 0.0267        |
+| 10 | 0.0250          | 0.0278        |
+
+I used 100,000 simulations so a point estimate of 0.025 would have 95\% confidence interval (0.024, 0.026).
+
+Daniel (very fairly) concluded that we should only adjust for very few covariates and we should even consider combining covariates into a single prognostic score.
+
+But thinking about this afterwards it dawned on me that the same finite-sample correction I discussed in [my last blogpost](https://dominicmagirr.github.io/blog/posts/variance_lm_2/variance_lm_2.html) from last year about linear models could be used to correct this.
+
+For a 1:1 trial we need to multiply the estimated variance by a factor:
+
+$$\frac{n}{n-k}\times\frac{n-3}{n-k-3},$$
+
+where $n$ is the sample size and $k$ the number of covariate parameters. The first part is a degrees of freedom correction and the second part is the expected "variance inflation factor" discussed by [Senn et al.,(2024)](https://arxiv.org/pdf/2408.06760).
+
+When I applied this correction factor the type 1 error inflation went away:
+
+| k  | T1E(Unadjusted) | T1E(Adjusted with correction) |
+|----|-----------------|-------------------------------|
+| 3  | 0.0242          | 0.0246                        |
+| 5  | 0.0255          | 0.0256                        |
+| 10 | 0.0250          | 0.0252                        |
+
+I should have realized this would work sooner. I think I didn't for two reasons. 
+
+- Firstly, the derivation of the variance of the adjusted hazard ratio in [Ye et al. (2024)](https://doi.org/10.1093/biomet/asad045) is somewhat complex, obscuring (for me) that the fundamental issues are the same as in my [previous post on linear models](https://dominicmagirr.github.io/blog/posts/variance_lm_2/variance_lm_2.html). 
+
+- Secondly, I perhaps expected the amount of excess type 1 error (for an adjusted compared to an unadjusted test) to depend on the number of events rather than number of patients. But it is the number of patients that matters here. This means that in a large cardiovascular outcome trial with (say) $n=4000$ patients and around 250 events (same as the oncology trial example), there should be minimal additional type 1 error inflation even without the finite-sample size correction. I confirmed this with simulation (full details in the code below):
+
+
+| k  | T1E(Unadjusted) | T1E(Adjusted) |
+|----|-----------------|---------------|
+| 3  | 0.0248          | 0.0252        |
+| 5  | 0.0249          | 0.0256        |
+| 10 | 0.0249          | 0.0256        |
+ 
+  
+### Code
+
+```{r, eval=FALSE}
+library(survival)
+library(RobinCar2)
+library(clustermq)
+
+cox_vs_ye <- function(n = 4000,
+                      k = 2,
+                      rec_time = 2,
+                      med = 26,
+                      end_study = 4,
+                      hr = 1,
+                      beta = 0){
+
+  ## recruitment
+  rec <- runif(n, 0, rec_time)
+
+  ## covariates
+  x <- matrix(rnorm(n * k), nrow = n, ncol = k)
+  colnames(x) <- paste0("x", 1:k)
+
+  ## trt assignment
+  a <- rbinom(n, 1, 0.5)
+
+ 
+  ## survival (uncensored)
+  lambda_0 <- log(2) / med
+  t_star <- rexp(n, lambda_0 * hr^a * exp(x%*%rep(beta,k)))
+
+  ## survival (censored)
+  delta <- as.numeric((rec + t_star) < end_study)
+  surv_t <- pmin(t_star, end_study - rec)
+
+  ## data set
+  dat <- data.frame(a = factor(a),
+                    delta = delta,
+                    surv_t = surv_t) |> cbind(x)
+
+  ## analysis
+  cox_fit <- coxph(Surv(surv_t, delta) ~ a, data = dat, ties = "breslow") |> summary()
+
+ 
+  ye_fit <- robin_surv(as.formula(paste0("Surv(surv_t, delta) ~ ",
+                                         paste(paste0("x",1:k), collapse = "+"))),
+                       treatment = a ~ sr(1),
+                       data = dat)
+
+  return(data.frame(cox_z = cox_fit$coef[,"z"],
+                    cox_lhr = cox_fit$coef[,"coef"],
+                    cox_se = cox_fit$coef[,"se(coef)"],
+                    ye_z = ye_fit$log_hr_coef_mat[,"Z Value"],
+                    ye_lhr = ye_fit$log_hr_coef_mat[,"Estimate"],
+                    ye_se = ye_fit$log_hr_coef_mat[,"Std.Err"]))
+
+}
+
+cox_vs_ye_pwr <- function(n,
+                          n_sims,
+                          hr,
+                          beta,
+                          rec_time,
+                          med,
+                          end_study,
+                          k){
+  
+  results <- Q(fun = cox_vs_ye,
+               n = rep(n, n_sims),
+               const = list(hr = hr,
+                            beta = beta,
+                            rec_time = rec_time,
+                            med = med,
+                            end_study = end_study,
+                            k = k),
+               pkgs = c("survival", "RobinCar2"),
+               n_jobs = 200)
+  
+  results_df <- dplyr::bind_rows(results)
+  
+  ## empirical type 1 error
+  pwr <- colMeans(results_df[,c("cox_z", "ye_z")] < qnorm(0.025))
+  
+  ## MC lower limit
+  pwr_lwr <- pwr - qnorm(0.975) * sqrt(pwr / n_sims)
+  
+  ## MC uppper limit
+  pwr_upr <- pwr + qnorm(0.975) * sqrt(pwr / n_sims)
+  
+  
+  return(list(pwr = pwr,
+              pwr_lwr = pwr_lwr,
+              pwr_upr = pwr_upr,
+              results_df = results_df))
+  
+  
+  
+}
+
+# sim oncology-type trial 
+
+onc_3 <- cox_vs_ye_pwr(n = 500, n_sims = 1e5, hr = 1, beta = 0, rec_time = 6, med = 12, end_study = 18, k = 3)
+
+onc_5 <- cox_vs_ye_pwr(n = 500, n_sims = 1e5, hr = 1, beta = 0, rec_time = 6, med = 12, end_study = 18, k = 5)
+
+onc_10 <- cox_vs_ye_pwr(n = 500, n_sims = 1e5, hr = 1, beta = 0, rec_time = 6, med = 12, end_study = 18, k = 10)
+
+onc_3$pwr|> round(4)
+onc_5$pwr|> round(4)
+onc_10$pwr|> round(4)
+
+# apply finite-sample correction
+
+onc_3_adj <- onc_3$results_df$ye_lhr / (onc_3$results_df$ye_se * sqrt((500 - 3)/ (500 - 3 - 3)) * sqrt((500 )/ (500 - 3)))
+
+mean(onc_3_adj < qnorm(0.025))
+
+ 
+
+onc_5_adj <- onc_5$results_df$ye_lhr / (onc_5$results_df$ye_se * sqrt((500 - 3)/ (500 - 5 - 3)) * sqrt((500 )/ (500 - 5)))
+
+mean(onc_5_adj < qnorm(0.025))
+
+ 
+
+onc_10_adj <- onc_10$results_df$ye_lhr / (onc_10$results_df$ye_se * sqrt((500 - 3)/ (500 - 10 - 3)) * sqrt((500 )/ (500 - 10)))
+
+mean(onc_10_adj < qnorm(0.025))
+
+
+
+
+# sim cvot-type trial  
+
+cvot_3 <- cox_vs_ye_pwr(n = 4000, n_sims = 1e5, hr = 1, beta = 0, rec_time = 2, med = 26, end_study = 4, k = 3)
+cvot_5 <- cox_vs_ye_pwr(n = 4000, n_sims = 1e5, hr = 1, beta = 0, rec_time = 2, med = 26, end_study = 4, k = 5)
+cvot_10 <- cox_vs_ye_pwr(n = 4000, n_sims = 1e5, hr = 1, beta = 0, rec_time = 2, med = 26, end_study = 4, k = 10)
+
+
+cvot_3$pwr |> round(4)
+cvot_5$pwr|> round(4)
+cvot_10$pwr|> round(4)
+
+
+```
+
+

@@ -10,7 +10,271 @@
 <atom:link href="https://dominicmagirr.github.io/blog/index.xml" rel="self" type="application/rss+xml"/>
 <description>A blog about statistical methodology in clinical trials</description>
 <generator>quarto-1.2.475</generator>
-<lastBuildDate>Wed, 08 Oct 2025 22:00:00 GMT</lastBuildDate>
+<lastBuildDate>Sat, 25 Apr 2026 22:00:00 GMT</lastBuildDate>
+<item>
+  <title>Finite-sample correction for the covariate-adjusted log-rank test</title>
+  <dc:creator>Dominic Magirr</dc:creator>
+  <link>https://dominicmagirr.github.io/blog/posts/adjusted_hr_correction/adjusted_hr_correction.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>I just watched a <a href="https://carswg.github.io/journalclub/journalclub18.html">recording</a> of an excellent presentation by Daniel Backenroth as part of the <a href="https://carswg.github.io/journalclub/journalclub18.html">ASA Covariate Adjustment Working Group</a>’s journal club.</p>
+<p>Daniel’s topic was <em>Practical considerations when using covariate-adjusted log-rank tests</em>. The covariate-adjusted log-rank test and its corresponding estimation procedure is a novel way to do covariate adjustment when estimating hazard ratios, developed by <a href="https://doi.org/10.1093/biomet/asad045">Ting Ye and colleagues (2024)</a> and implemented in the <a href="https://marlenabannick.com/RobinCar/"><code>RobinCar</code></a> and <a href="https://openpharma.github.io/RobinCar2/main/index.html"><code>RobinCar2</code></a> packages.</p>
+<p>One of the issues Daniel highlighted was a non-ignorable type 1 error inflation when the number of covariates increases beyond a (quite small) number.</p>
+<p>I could replicate this issue with my own small simulation study (I’ll add the code with all the details at the end of this post). When I simulated a trial with sample size 500 and around 250 events (quite typical for oncology) I got an increasing type 1 error rate as I increased the number of covariates (k):</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th>k</th>
+<th>T1E (Unadjusted)</th>
+<th>T1E (Adjusted)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>3</td>
+<td>0.0242</td>
+<td>0.0254</td>
+</tr>
+<tr class="even">
+<td>5</td>
+<td>0.0255</td>
+<td>0.0267</td>
+</tr>
+<tr class="odd">
+<td>10</td>
+<td>0.0250</td>
+<td>0.0278</td>
+</tr>
+</tbody>
+</table>
+<p>I used 100,000 simulations so a point estimate of 0.025 would have 95% confidence interval (0.024, 0.026).</p>
+<p>Daniel (very fairly) concluded that we should only adjust for very few covariates and we should even consider combining covariates into a single prognostic score.</p>
+<p>But thinking about this afterwards it dawned on me that the same finite-sample correction I discussed in <a href="https://dominicmagirr.github.io/blog/posts/variance_lm_2/variance_lm_2.html">my last blogpost</a> from last year about linear models could be used to correct this.</p>
+<p>For a 1:1 trial we need to multiply the estimated variance by a factor:</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cfrac%7Bn%7D%7Bn-k%7D%5Ctimes%5Cfrac%7Bn-3%7D%7Bn-k-3%7D,"></p>
+<p>where <img src="https://latex.codecogs.com/png.latex?n"> is the sample size and <img src="https://latex.codecogs.com/png.latex?k"> the number of covariate parameters. The first part is a degrees of freedom correction and the second part is the expected “variance inflation factor” discussed by <a href="https://arxiv.org/pdf/2408.06760">Senn et al.,(2024)</a>.</p>
+<p>When I applied this correction factor the type 1 error inflation went away:</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th>k</th>
+<th>T1E(Unadjusted)</th>
+<th>T1E(Adjusted with correction)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>3</td>
+<td>0.0242</td>
+<td>0.0246</td>
+</tr>
+<tr class="even">
+<td>5</td>
+<td>0.0255</td>
+<td>0.0256</td>
+</tr>
+<tr class="odd">
+<td>10</td>
+<td>0.0250</td>
+<td>0.0252</td>
+</tr>
+</tbody>
+</table>
+<p>I should have realized this would work sooner. I think I didn’t for two reasons.</p>
+<ul>
+<li><p>Firstly, the derivation of the variance of the adjusted hazard ratio in <a href="https://doi.org/10.1093/biomet/asad045">Ye et al.&nbsp;(2024)</a> is somewhat complex, obscuring (for me) that the fundamental issues are the same as in my <a href="https://dominicmagirr.github.io/blog/posts/variance_lm_2/variance_lm_2.html">previous post on linear models</a>.</p></li>
+<li><p>Secondly, I perhaps expected the amount of excess type 1 error (for an adjusted compared to an unadjusted test) to depend on the number of events rather than number of patients. But it is the number of patients that matters here. This means that in a large cardiovascular outcome trial with (say) <img src="https://latex.codecogs.com/png.latex?n=4000"> patients and around 250 events (same as the oncology trial example), there should be minimal additional type 1 error inflation even without the finite-sample size correction. I confirmed this with simulation (full details in the code below):</p></li>
+</ul>
+<table class="table">
+<thead>
+<tr class="header">
+<th>k</th>
+<th>T1E(Unadjusted)</th>
+<th>T1E(Adjusted)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>3</td>
+<td>0.0248</td>
+<td>0.0252</td>
+</tr>
+<tr class="even">
+<td>5</td>
+<td>0.0249</td>
+<td>0.0256</td>
+</tr>
+<tr class="odd">
+<td>10</td>
+<td>0.0249</td>
+<td>0.0256</td>
+</tr>
+</tbody>
+</table>
+<section id="code" class="level3">
+<h3 class="anchored" data-anchor-id="code">Code</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">library</span>(survival)</span>
+<span id="cb1-2"><span class="fu" style="color: #4758AB;">library</span>(RobinCar2)</span>
+<span id="cb1-3"><span class="fu" style="color: #4758AB;">library</span>(clustermq)</span>
+<span id="cb1-4"></span>
+<span id="cb1-5">cox_vs_ye <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(<span class="at" style="color: #657422;">n =</span> <span class="dv" style="color: #AD0000;">4000</span>,</span>
+<span id="cb1-6">                      <span class="at" style="color: #657422;">k =</span> <span class="dv" style="color: #AD0000;">2</span>,</span>
+<span id="cb1-7">                      <span class="at" style="color: #657422;">rec_time =</span> <span class="dv" style="color: #AD0000;">2</span>,</span>
+<span id="cb1-8">                      <span class="at" style="color: #657422;">med =</span> <span class="dv" style="color: #AD0000;">26</span>,</span>
+<span id="cb1-9">                      <span class="at" style="color: #657422;">end_study =</span> <span class="dv" style="color: #AD0000;">4</span>,</span>
+<span id="cb1-10">                      <span class="at" style="color: #657422;">hr =</span> <span class="dv" style="color: #AD0000;">1</span>,</span>
+<span id="cb1-11">                      <span class="at" style="color: #657422;">beta =</span> <span class="dv" style="color: #AD0000;">0</span>){</span>
+<span id="cb1-12"></span>
+<span id="cb1-13">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## recruitment</span></span>
+<span id="cb1-14">  rec <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">runif</span>(n, <span class="dv" style="color: #AD0000;">0</span>, rec_time)</span>
+<span id="cb1-15"></span>
+<span id="cb1-16">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## covariates</span></span>
+<span id="cb1-17">  x <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">matrix</span>(<span class="fu" style="color: #4758AB;">rnorm</span>(n <span class="sc" style="color: #5E5E5E;">*</span> k), <span class="at" style="color: #657422;">nrow =</span> n, <span class="at" style="color: #657422;">ncol =</span> k)</span>
+<span id="cb1-18">  <span class="fu" style="color: #4758AB;">colnames</span>(x) <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">paste0</span>(<span class="st" style="color: #20794D;">"x"</span>, <span class="dv" style="color: #AD0000;">1</span><span class="sc" style="color: #5E5E5E;">:</span>k)</span>
+<span id="cb1-19"></span>
+<span id="cb1-20">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## trt assignment</span></span>
+<span id="cb1-21">  a <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rbinom</span>(n, <span class="dv" style="color: #AD0000;">1</span>, <span class="fl" style="color: #AD0000;">0.5</span>)</span>
+<span id="cb1-22"></span>
+<span id="cb1-23"> </span>
+<span id="cb1-24">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## survival (uncensored)</span></span>
+<span id="cb1-25">  lambda_0 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">log</span>(<span class="dv" style="color: #AD0000;">2</span>) <span class="sc" style="color: #5E5E5E;">/</span> med</span>
+<span id="cb1-26">  t_star <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rexp</span>(n, lambda_0 <span class="sc" style="color: #5E5E5E;">*</span> hr<span class="sc" style="color: #5E5E5E;">^</span>a <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">exp</span>(x<span class="sc" style="color: #5E5E5E;">%*%</span><span class="fu" style="color: #4758AB;">rep</span>(beta,k)))</span>
+<span id="cb1-27"></span>
+<span id="cb1-28">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## survival (censored)</span></span>
+<span id="cb1-29">  delta <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">as.numeric</span>((rec <span class="sc" style="color: #5E5E5E;">+</span> t_star) <span class="sc" style="color: #5E5E5E;">&lt;</span> end_study)</span>
+<span id="cb1-30">  surv_t <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">pmin</span>(t_star, end_study <span class="sc" style="color: #5E5E5E;">-</span> rec)</span>
+<span id="cb1-31"></span>
+<span id="cb1-32">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## data set</span></span>
+<span id="cb1-33">  dat <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">data.frame</span>(<span class="at" style="color: #657422;">a =</span> <span class="fu" style="color: #4758AB;">factor</span>(a),</span>
+<span id="cb1-34">                    <span class="at" style="color: #657422;">delta =</span> delta,</span>
+<span id="cb1-35">                    <span class="at" style="color: #657422;">surv_t =</span> surv_t) <span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">cbind</span>(x)</span>
+<span id="cb1-36"></span>
+<span id="cb1-37">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## analysis</span></span>
+<span id="cb1-38">  cox_fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">coxph</span>(<span class="fu" style="color: #4758AB;">Surv</span>(surv_t, delta) <span class="sc" style="color: #5E5E5E;">~</span> a, <span class="at" style="color: #657422;">data =</span> dat, <span class="at" style="color: #657422;">ties =</span> <span class="st" style="color: #20794D;">"breslow"</span>) <span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">summary</span>()</span>
+<span id="cb1-39"></span>
+<span id="cb1-40"> </span>
+<span id="cb1-41">  ye_fit <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">robin_surv</span>(<span class="fu" style="color: #4758AB;">as.formula</span>(<span class="fu" style="color: #4758AB;">paste0</span>(<span class="st" style="color: #20794D;">"Surv(surv_t, delta) ~ "</span>,</span>
+<span id="cb1-42">                                         <span class="fu" style="color: #4758AB;">paste</span>(<span class="fu" style="color: #4758AB;">paste0</span>(<span class="st" style="color: #20794D;">"x"</span>,<span class="dv" style="color: #AD0000;">1</span><span class="sc" style="color: #5E5E5E;">:</span>k), <span class="at" style="color: #657422;">collapse =</span> <span class="st" style="color: #20794D;">"+"</span>))),</span>
+<span id="cb1-43">                       <span class="at" style="color: #657422;">treatment =</span> a <span class="sc" style="color: #5E5E5E;">~</span> <span class="fu" style="color: #4758AB;">sr</span>(<span class="dv" style="color: #AD0000;">1</span>),</span>
+<span id="cb1-44">                       <span class="at" style="color: #657422;">data =</span> dat)</span>
+<span id="cb1-45"></span>
+<span id="cb1-46">  <span class="fu" style="color: #4758AB;">return</span>(<span class="fu" style="color: #4758AB;">data.frame</span>(<span class="at" style="color: #657422;">cox_z =</span> cox_fit<span class="sc" style="color: #5E5E5E;">$</span>coef[,<span class="st" style="color: #20794D;">"z"</span>],</span>
+<span id="cb1-47">                    <span class="at" style="color: #657422;">cox_lhr =</span> cox_fit<span class="sc" style="color: #5E5E5E;">$</span>coef[,<span class="st" style="color: #20794D;">"coef"</span>],</span>
+<span id="cb1-48">                    <span class="at" style="color: #657422;">cox_se =</span> cox_fit<span class="sc" style="color: #5E5E5E;">$</span>coef[,<span class="st" style="color: #20794D;">"se(coef)"</span>],</span>
+<span id="cb1-49">                    <span class="at" style="color: #657422;">ye_z =</span> ye_fit<span class="sc" style="color: #5E5E5E;">$</span>log_hr_coef_mat[,<span class="st" style="color: #20794D;">"Z Value"</span>],</span>
+<span id="cb1-50">                    <span class="at" style="color: #657422;">ye_lhr =</span> ye_fit<span class="sc" style="color: #5E5E5E;">$</span>log_hr_coef_mat[,<span class="st" style="color: #20794D;">"Estimate"</span>],</span>
+<span id="cb1-51">                    <span class="at" style="color: #657422;">ye_se =</span> ye_fit<span class="sc" style="color: #5E5E5E;">$</span>log_hr_coef_mat[,<span class="st" style="color: #20794D;">"Std.Err"</span>]))</span>
+<span id="cb1-52"></span>
+<span id="cb1-53">}</span>
+<span id="cb1-54"></span>
+<span id="cb1-55">cox_vs_ye_pwr <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(n,</span>
+<span id="cb1-56">                          n_sims,</span>
+<span id="cb1-57">                          hr,</span>
+<span id="cb1-58">                          beta,</span>
+<span id="cb1-59">                          rec_time,</span>
+<span id="cb1-60">                          med,</span>
+<span id="cb1-61">                          end_study,</span>
+<span id="cb1-62">                          k){</span>
+<span id="cb1-63">  </span>
+<span id="cb1-64">  results <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">Q</span>(<span class="at" style="color: #657422;">fun =</span> cox_vs_ye,</span>
+<span id="cb1-65">               <span class="at" style="color: #657422;">n =</span> <span class="fu" style="color: #4758AB;">rep</span>(n, n_sims),</span>
+<span id="cb1-66">               <span class="at" style="color: #657422;">const =</span> <span class="fu" style="color: #4758AB;">list</span>(<span class="at" style="color: #657422;">hr =</span> hr,</span>
+<span id="cb1-67">                            <span class="at" style="color: #657422;">beta =</span> beta,</span>
+<span id="cb1-68">                            <span class="at" style="color: #657422;">rec_time =</span> rec_time,</span>
+<span id="cb1-69">                            <span class="at" style="color: #657422;">med =</span> med,</span>
+<span id="cb1-70">                            <span class="at" style="color: #657422;">end_study =</span> end_study,</span>
+<span id="cb1-71">                            <span class="at" style="color: #657422;">k =</span> k),</span>
+<span id="cb1-72">               <span class="at" style="color: #657422;">pkgs =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"survival"</span>, <span class="st" style="color: #20794D;">"RobinCar2"</span>),</span>
+<span id="cb1-73">               <span class="at" style="color: #657422;">n_jobs =</span> <span class="dv" style="color: #AD0000;">200</span>)</span>
+<span id="cb1-74">  </span>
+<span id="cb1-75">  results_df <span class="ot" style="color: #003B4F;">&lt;-</span> dplyr<span class="sc" style="color: #5E5E5E;">::</span><span class="fu" style="color: #4758AB;">bind_rows</span>(results)</span>
+<span id="cb1-76">  </span>
+<span id="cb1-77">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## empirical type 1 error</span></span>
+<span id="cb1-78">  pwr <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">colMeans</span>(results_df[,<span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"cox_z"</span>, <span class="st" style="color: #20794D;">"ye_z"</span>)] <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span>
+<span id="cb1-79">  </span>
+<span id="cb1-80">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## MC lower limit</span></span>
+<span id="cb1-81">  pwr_lwr <span class="ot" style="color: #003B4F;">&lt;-</span> pwr <span class="sc" style="color: #5E5E5E;">-</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.975</span>) <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>(pwr <span class="sc" style="color: #5E5E5E;">/</span> n_sims)</span>
+<span id="cb1-82">  </span>
+<span id="cb1-83">  <span class="do" style="color: #5E5E5E;
+font-style: italic;">## MC uppper limit</span></span>
+<span id="cb1-84">  pwr_upr <span class="ot" style="color: #003B4F;">&lt;-</span> pwr <span class="sc" style="color: #5E5E5E;">+</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.975</span>) <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>(pwr <span class="sc" style="color: #5E5E5E;">/</span> n_sims)</span>
+<span id="cb1-85">  </span>
+<span id="cb1-86">  </span>
+<span id="cb1-87">  <span class="fu" style="color: #4758AB;">return</span>(<span class="fu" style="color: #4758AB;">list</span>(<span class="at" style="color: #657422;">pwr =</span> pwr,</span>
+<span id="cb1-88">              <span class="at" style="color: #657422;">pwr_lwr =</span> pwr_lwr,</span>
+<span id="cb1-89">              <span class="at" style="color: #657422;">pwr_upr =</span> pwr_upr,</span>
+<span id="cb1-90">              <span class="at" style="color: #657422;">results_df =</span> results_df))</span>
+<span id="cb1-91">  </span>
+<span id="cb1-92">  </span>
+<span id="cb1-93">  </span>
+<span id="cb1-94">}</span>
+<span id="cb1-95"></span>
+<span id="cb1-96"><span class="co" style="color: #5E5E5E;"># sim oncology-type trial </span></span>
+<span id="cb1-97"></span>
+<span id="cb1-98">onc_3 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cox_vs_ye_pwr</span>(<span class="at" style="color: #657422;">n =</span> <span class="dv" style="color: #AD0000;">500</span>, <span class="at" style="color: #657422;">n_sims =</span> <span class="fl" style="color: #AD0000;">1e5</span>, <span class="at" style="color: #657422;">hr =</span> <span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">beta =</span> <span class="dv" style="color: #AD0000;">0</span>, <span class="at" style="color: #657422;">rec_time =</span> <span class="dv" style="color: #AD0000;">6</span>, <span class="at" style="color: #657422;">med =</span> <span class="dv" style="color: #AD0000;">12</span>, <span class="at" style="color: #657422;">end_study =</span> <span class="dv" style="color: #AD0000;">18</span>, <span class="at" style="color: #657422;">k =</span> <span class="dv" style="color: #AD0000;">3</span>)</span>
+<span id="cb1-99"></span>
+<span id="cb1-100">onc_5 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cox_vs_ye_pwr</span>(<span class="at" style="color: #657422;">n =</span> <span class="dv" style="color: #AD0000;">500</span>, <span class="at" style="color: #657422;">n_sims =</span> <span class="fl" style="color: #AD0000;">1e5</span>, <span class="at" style="color: #657422;">hr =</span> <span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">beta =</span> <span class="dv" style="color: #AD0000;">0</span>, <span class="at" style="color: #657422;">rec_time =</span> <span class="dv" style="color: #AD0000;">6</span>, <span class="at" style="color: #657422;">med =</span> <span class="dv" style="color: #AD0000;">12</span>, <span class="at" style="color: #657422;">end_study =</span> <span class="dv" style="color: #AD0000;">18</span>, <span class="at" style="color: #657422;">k =</span> <span class="dv" style="color: #AD0000;">5</span>)</span>
+<span id="cb1-101"></span>
+<span id="cb1-102">onc_10 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cox_vs_ye_pwr</span>(<span class="at" style="color: #657422;">n =</span> <span class="dv" style="color: #AD0000;">500</span>, <span class="at" style="color: #657422;">n_sims =</span> <span class="fl" style="color: #AD0000;">1e5</span>, <span class="at" style="color: #657422;">hr =</span> <span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">beta =</span> <span class="dv" style="color: #AD0000;">0</span>, <span class="at" style="color: #657422;">rec_time =</span> <span class="dv" style="color: #AD0000;">6</span>, <span class="at" style="color: #657422;">med =</span> <span class="dv" style="color: #AD0000;">12</span>, <span class="at" style="color: #657422;">end_study =</span> <span class="dv" style="color: #AD0000;">18</span>, <span class="at" style="color: #657422;">k =</span> <span class="dv" style="color: #AD0000;">10</span>)</span>
+<span id="cb1-103"></span>
+<span id="cb1-104">onc_3<span class="sc" style="color: #5E5E5E;">$</span>pwr<span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">round</span>(<span class="dv" style="color: #AD0000;">4</span>)</span>
+<span id="cb1-105">onc_5<span class="sc" style="color: #5E5E5E;">$</span>pwr<span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">round</span>(<span class="dv" style="color: #AD0000;">4</span>)</span>
+<span id="cb1-106">onc_10<span class="sc" style="color: #5E5E5E;">$</span>pwr<span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">round</span>(<span class="dv" style="color: #AD0000;">4</span>)</span>
+<span id="cb1-107"></span>
+<span id="cb1-108"><span class="co" style="color: #5E5E5E;"># apply finite-sample correction</span></span>
+<span id="cb1-109"></span>
+<span id="cb1-110">onc_3_adj <span class="ot" style="color: #003B4F;">&lt;-</span> onc_3<span class="sc" style="color: #5E5E5E;">$</span>results_df<span class="sc" style="color: #5E5E5E;">$</span>ye_lhr <span class="sc" style="color: #5E5E5E;">/</span> (onc_3<span class="sc" style="color: #5E5E5E;">$</span>results_df<span class="sc" style="color: #5E5E5E;">$</span>ye_se <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>((<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)<span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)) <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>((<span class="dv" style="color: #AD0000;">500</span> )<span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)))</span>
+<span id="cb1-111"></span>
+<span id="cb1-112"><span class="fu" style="color: #4758AB;">mean</span>(onc_3_adj <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span>
+<span id="cb1-113"></span>
+<span id="cb1-114"> </span>
+<span id="cb1-115"></span>
+<span id="cb1-116">onc_5_adj <span class="ot" style="color: #003B4F;">&lt;-</span> onc_5<span class="sc" style="color: #5E5E5E;">$</span>results_df<span class="sc" style="color: #5E5E5E;">$</span>ye_lhr <span class="sc" style="color: #5E5E5E;">/</span> (onc_5<span class="sc" style="color: #5E5E5E;">$</span>results_df<span class="sc" style="color: #5E5E5E;">$</span>ye_se <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>((<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)<span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">5</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)) <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>((<span class="dv" style="color: #AD0000;">500</span> )<span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">5</span>)))</span>
+<span id="cb1-117"></span>
+<span id="cb1-118"><span class="fu" style="color: #4758AB;">mean</span>(onc_5_adj <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span>
+<span id="cb1-119"></span>
+<span id="cb1-120"> </span>
+<span id="cb1-121"></span>
+<span id="cb1-122">onc_10_adj <span class="ot" style="color: #003B4F;">&lt;-</span> onc_10<span class="sc" style="color: #5E5E5E;">$</span>results_df<span class="sc" style="color: #5E5E5E;">$</span>ye_lhr <span class="sc" style="color: #5E5E5E;">/</span> (onc_10<span class="sc" style="color: #5E5E5E;">$</span>results_df<span class="sc" style="color: #5E5E5E;">$</span>ye_se <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>((<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)<span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">10</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)) <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">sqrt</span>((<span class="dv" style="color: #AD0000;">500</span> )<span class="sc" style="color: #5E5E5E;">/</span> (<span class="dv" style="color: #AD0000;">500</span> <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">10</span>)))</span>
+<span id="cb1-123"></span>
+<span id="cb1-124"><span class="fu" style="color: #4758AB;">mean</span>(onc_10_adj <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fu" style="color: #4758AB;">qnorm</span>(<span class="fl" style="color: #AD0000;">0.025</span>))</span>
+<span id="cb1-125"></span>
+<span id="cb1-126"></span>
+<span id="cb1-127"></span>
+<span id="cb1-128"></span>
+<span id="cb1-129"><span class="co" style="color: #5E5E5E;"># sim cvot-type trial  </span></span>
+<span id="cb1-130"></span>
+<span id="cb1-131">cvot_3 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cox_vs_ye_pwr</span>(<span class="at" style="color: #657422;">n =</span> <span class="dv" style="color: #AD0000;">4000</span>, <span class="at" style="color: #657422;">n_sims =</span> <span class="fl" style="color: #AD0000;">1e5</span>, <span class="at" style="color: #657422;">hr =</span> <span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">beta =</span> <span class="dv" style="color: #AD0000;">0</span>, <span class="at" style="color: #657422;">rec_time =</span> <span class="dv" style="color: #AD0000;">2</span>, <span class="at" style="color: #657422;">med =</span> <span class="dv" style="color: #AD0000;">26</span>, <span class="at" style="color: #657422;">end_study =</span> <span class="dv" style="color: #AD0000;">4</span>, <span class="at" style="color: #657422;">k =</span> <span class="dv" style="color: #AD0000;">3</span>)</span>
+<span id="cb1-132">cvot_5 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cox_vs_ye_pwr</span>(<span class="at" style="color: #657422;">n =</span> <span class="dv" style="color: #AD0000;">4000</span>, <span class="at" style="color: #657422;">n_sims =</span> <span class="fl" style="color: #AD0000;">1e5</span>, <span class="at" style="color: #657422;">hr =</span> <span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">beta =</span> <span class="dv" style="color: #AD0000;">0</span>, <span class="at" style="color: #657422;">rec_time =</span> <span class="dv" style="color: #AD0000;">2</span>, <span class="at" style="color: #657422;">med =</span> <span class="dv" style="color: #AD0000;">26</span>, <span class="at" style="color: #657422;">end_study =</span> <span class="dv" style="color: #AD0000;">4</span>, <span class="at" style="color: #657422;">k =</span> <span class="dv" style="color: #AD0000;">5</span>)</span>
+<span id="cb1-133">cvot_10 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cox_vs_ye_pwr</span>(<span class="at" style="color: #657422;">n =</span> <span class="dv" style="color: #AD0000;">4000</span>, <span class="at" style="color: #657422;">n_sims =</span> <span class="fl" style="color: #AD0000;">1e5</span>, <span class="at" style="color: #657422;">hr =</span> <span class="dv" style="color: #AD0000;">1</span>, <span class="at" style="color: #657422;">beta =</span> <span class="dv" style="color: #AD0000;">0</span>, <span class="at" style="color: #657422;">rec_time =</span> <span class="dv" style="color: #AD0000;">2</span>, <span class="at" style="color: #657422;">med =</span> <span class="dv" style="color: #AD0000;">26</span>, <span class="at" style="color: #657422;">end_study =</span> <span class="dv" style="color: #AD0000;">4</span>, <span class="at" style="color: #657422;">k =</span> <span class="dv" style="color: #AD0000;">10</span>)</span>
+<span id="cb1-134"></span>
+<span id="cb1-135"></span>
+<span id="cb1-136">cvot_3<span class="sc" style="color: #5E5E5E;">$</span>pwr <span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">round</span>(<span class="dv" style="color: #AD0000;">4</span>)</span>
+<span id="cb1-137">cvot_5<span class="sc" style="color: #5E5E5E;">$</span>pwr<span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">round</span>(<span class="dv" style="color: #AD0000;">4</span>)</span>
+<span id="cb1-138">cvot_10<span class="sc" style="color: #5E5E5E;">$</span>pwr<span class="sc" style="color: #5E5E5E;">|&gt;</span> <span class="fu" style="color: #4758AB;">round</span>(<span class="dv" style="color: #AD0000;">4</span>)</span></code></pre></div>
+</div>
+
+
+</section>
+
+ ]]></description>
+  <category>RCT</category>
+  <guid>https://dominicmagirr.github.io/blog/posts/adjusted_hr_correction/adjusted_hr_correction.html</guid>
+  <pubDate>Sat, 25 Apr 2026 22:00:00 GMT</pubDate>
+</item>
 <item>
   <title>Variance estimation: ANCOVA RCT analysis (part 2)</title>
   <dc:creator>Dominic Magirr</dc:creator>

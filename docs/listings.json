@@ -2,6 +2,7 @@
   {
     "listing": "/index.html",
     "items": [
+      "/posts/adjusted_hr_correction/adjusted_hr_correction.html",
       "/posts/variance_lm_2/variance_lm_2.html",
       "/posts/variance_lm/variance_lm.html",
       "/posts/causal_hr/causal_hr.html",

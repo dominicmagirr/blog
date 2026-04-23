@@ -2,38 +2,42 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://dominicmagirr.github.io/blog/about.html</loc>
-    <lastmod>2024-05-12T18:42:06.643Z</lastmod>
+    <lastmod>2026-04-23T21:02:47.302Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/index.html</loc>
-    <lastmod>2025-10-09T19:43:59.565Z</lastmod>
+    <lastmod>2026-04-23T21:02:49.158Z</lastmod>
+  </url>
+  <url>
+    <loc>https://dominicmagirr.github.io/blog/posts/adjusted_hr_correction/adjusted_hr_correction.html</loc>
+    <lastmod>2026-04-23T21:02:51.158Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/causal_hr/causal_hr.html</loc>
-    <lastmod>2025-10-05T16:04:35.564Z</lastmod>
+    <lastmod>2026-04-23T21:02:52.707Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/conditional_inference/index.html</loc>
-    <lastmod>2024-05-12T18:42:10.456Z</lastmod>
+    <lastmod>2026-04-23T21:02:54.657Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/normal_inverse_wishart/index.html</loc>
-    <lastmod>2024-05-12T18:42:11.828Z</lastmod>
+    <lastmod>2026-04-23T21:02:56.256Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/old-blog-posts/index.html</loc>
-    <lastmod>2024-05-12T18:42:12.902Z</lastmod>
+    <lastmod>2026-04-23T21:02:57.554Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/stratify_or_adjust/index.html</loc>
-    <lastmod>2024-05-12T18:42:14.420Z</lastmod>
+    <lastmod>2026-04-23T21:02:59.332Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/variance_lm/variance_lm.html</loc>
-    <lastmod>2025-10-05T16:50:30.007Z</lastmod>
+    <lastmod>2026-04-23T21:03:00.995Z</lastmod>
   </url>
   <url>
     <loc>https://dominicmagirr.github.io/blog/posts/variance_lm_2/variance_lm_2.html</loc>
-    <lastmod>2025-10-09T19:44:04.207Z</lastmod>
+    <lastmod>2026-04-23T21:03:02.664Z</lastmod>
   </url>
 </urlset>
